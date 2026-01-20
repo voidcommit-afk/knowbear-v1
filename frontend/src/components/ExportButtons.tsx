@@ -7,7 +7,7 @@ interface ExportButtonsProps {
 }
 
 export default function ExportButtons({ topic, explanations }: ExportButtonsProps) {
-    const handleExport = async (format: 'txt' | 'json' | 'pdf') => {
+    const handleExport = async (format: 'txt' | 'json') => {
         try {
             const req: ExportRequest = { topic, explanations, format }
             const blob = await exportExplanations(req)

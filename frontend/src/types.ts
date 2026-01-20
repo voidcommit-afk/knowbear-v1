@@ -20,7 +20,7 @@ export interface QueryResponse {
 export interface ExportRequest {
     topic: string
     explanations: Record<string, string>
-    format: 'txt' | 'json' | 'pdf'
+    format: 'txt' | 'json' | 'pdf' | 'md'
 }
 
 export const FREE_LEVELS = ['eli5', 'eli10', 'eli12', 'eli15', 'meme'] as const

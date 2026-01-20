@@ -6,7 +6,7 @@ import SearchBar from './components/SearchBar'
 import PinnedTopics from './components/PinnedTopics'
 import LevelDropdown from './components/LevelDropdown'
 import ExplanationCard from './components/ExplanationCard'
-import ExportButtons from './components/ExportButtons'
+import ExportDropdown from './components/ExportDropdown'
 import Spinner from './components/Spinner'
 
 export default function App() {
@@ -154,12 +154,14 @@ export default function App() {
 
                     {result && (
                         <section className="space-y-6">
-                            <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-dark-700 pb-4">
+                            <div className="border-b border-dark-700 pb-4">
                                 <h2 className="text-2xl font-semibold text-white text-center md:text-left">{result.topic}</h2>
-                                <ExportButtons topic={result.topic} explanations={result.explanations} />
                             </div>
 
-                            <LevelDropdown selected={selectedLevel} onChange={setSelectedLevel} />
+                            <div className="flex flex-col md:flex-row gap-4">
+                                <ExportDropdown topic={result.topic} explanations={result.explanations} />
+                                <LevelDropdown selected={selectedLevel} onChange={setSelectedLevel} />
+                            </div>
 
                             {fetchingLevels.has(selectedLevel) ? (
                                 <div className="bg-dark-700/50 backdrop-blur-sm rounded-lg p-12 flex flex-col items-center border border-dark-600">
