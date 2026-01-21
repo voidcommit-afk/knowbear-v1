@@ -176,9 +176,7 @@ export default function AppPage() {
                                 </div>
                             )}
 
-                            {result.cached && (
-                                <p className="text-sm text-gray-500">⚡ Served from cache</p>
-                            )}
+
                         </section>
                     )}
 
@@ -186,7 +184,7 @@ export default function AppPage() {
                 </main>
 
                 <footer className="mt-16 text-center text-gray-600 text-sm pb-4">
-                    © 2026 KnowBear • Powered by Groq AI
+                    © 2026 KnowBear
                 </footer>
             </div>
         </div>
