@@ -158,7 +158,7 @@ export default function AppPage() {
                                 <h2 className="text-2xl font-semibold text-white text-center md:text-left">{result.topic}</h2>
                             </div>
 
-                            <div className="flex flex-col md:flex-row gap-4">
+                            <div className="flex flex-col md:flex-row md:justify-between gap-4">
                                 <ExportDropdown topic={result.topic} explanations={result.explanations} />
                                 <LevelDropdown selected={selectedLevel} onChange={setSelectedLevel} />
                             </div>
