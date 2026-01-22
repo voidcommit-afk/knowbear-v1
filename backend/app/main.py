@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi_limiter2 import FastAPILimiter
+from fastapi_limiter import FastAPILimiter
 from app.routers import pinned, query, export
 from app.services.cache import close_redis, get_redis
 from app.services.inference import close_client

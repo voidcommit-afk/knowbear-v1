@@ -28,7 +28,7 @@ class QueryResponse(BaseModel):
 
 from app.auth import verify_token
 from fastapi import APIRouter, HTTPException, Depends
-from fastapi_limiter2.depends import RateLimiter
+from fastapi_limiter.depends import RateLimiter
 
 # ... (other imports)
 

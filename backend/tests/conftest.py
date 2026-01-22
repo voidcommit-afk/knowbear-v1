@@ -17,12 +17,8 @@ mock_redis_client.ping.return_value = True
 mock_redis_module.from_url.return_value = mock_redis_client
 sys.modules["redis.asyncio"] = mock_redis_module
 
-# Mock fastapi_limiter2 (new package)
+# Mock fastapi_limiter
 mock_limiter = MagicMock()
 mock_limiter.FastAPILimiter.init = AsyncMock()
-sys.modules["fastapi_limiter2"] = mock_limiter
-sys.modules["fastapi_limiter2.depends"] = MagicMock()
-
-# Keep old package mocked for backwards compatibility
 sys.modules["fastapi_limiter"] = mock_limiter
 sys.modules["fastapi_limiter.depends"] = MagicMock()
