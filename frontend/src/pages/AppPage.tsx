@@ -152,6 +152,9 @@ export default function AppPage() {
 
                     {!result && !loading && (
                         <section className="bg-dark-800/50 backdrop-blur-sm border border-dark-700 rounded-2xl p-6">
+                            <h3 className="text-xl font-semibold text-white mb-4">
+                                Popular Topics
+                            </h3>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                 {[
                                     { topic: 'blockchain', description: 'Distributed ledger technology' },
