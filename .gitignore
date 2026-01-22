@@ -12,3 +12,5 @@ dist/
 build/
 .DS_Store
 agent-to-do.md
+Prompt-Improvising-to-do.md
+vercel.json
