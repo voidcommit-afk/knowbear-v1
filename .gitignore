@@ -12,3 +12,4 @@ dist/
 build/
 .DS_Store
 .local-files/
+render.yaml
