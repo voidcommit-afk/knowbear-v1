@@ -20,10 +20,10 @@ Output JSON: {{"best": 0|1, "reason": "brief"}}"""
 
 # Model configs for Groq
 FREE_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
-PREMIUM_MODELS = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "gemini", "gemma"]
+PREMIUM_MODELS = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "gemini", "gemma2-9b-it"]
 JUDGE_MODEL = "llama-3.1-8b-instant"
 FAST_MODEL = "llama-3.1-8b-instant"
 
 # Brief Dive Mode: High-quality, concise models
-BRIEF_DIVE_MODELS = ["gpt-oss-120b", "deepseek-r1-distill-llama-70b"]
+BRIEF_DIVE_MODELS = ["gemma2-9b-it", "gpt-oss-120b"]
 BRIEF_DIVE_JUDGE = "gpt-oss-120b"

@@ -51,8 +51,6 @@ class ModelProvider:
         """Complete text using specified model."""
         if model_type == "gemini":
             return await self._call_gemini(prompt, **kwargs)
-        elif model_type == "gemma":
-            return await self._call_gemma(prompt, **kwargs)
         else:
             raise ModelError(f"Unknown model type: {model_type}")
 
