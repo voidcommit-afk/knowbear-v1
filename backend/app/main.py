@@ -54,6 +54,9 @@ async def lifespan(app: FastAPI):
     yield
     await asyncio.gather(close_redis(), close_client())
 
+@app.get("/{path:path}")
+async def catch_all(path: str):
+    return {"message": f"Catch-all route hit: /{path}", "status": "Backend is running!"}
 
 app = FastAPI(
     title="KnowBear API",
