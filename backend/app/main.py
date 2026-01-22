@@ -20,8 +20,9 @@ async def lifespan(app: FastAPI):
     await provider.initialize()
     
     # Safe logging
-    print(f"Startup: Gemini {'Available' if provider.gemini_configured else 'Not Configured'}")
-    print(f"Startup: Gemma {'Available' if provider.gemma_token else 'Not Configured'}")
+    import sys
+    print(f"Startup: Gemini {'Available' if provider.gemini_configured else 'Not Configured'}", file=sys.stderr)
+    print(f"Startup: Gemma {'Available' if provider.gemma_token else 'Not Configured'}", file=sys.stderr)
     
     yield
     await asyncio.gather(close_redis(), close_client())
@@ -69,5 +70,25 @@ app.include_router(export.router, prefix="/api")
 
 @app.get("/health")
 async def health():
-    """Health check."""
-    return {"status": "ok"}
+    """Health check with dependency status."""
+    status = {"status": "ok", "dependencies": {}}
+    
+    # Check Google Generative AI
+    try:
+        import google.generativeai as genai
+        status["dependencies"]["google-generativeai"] = f"installed ({genai.__version__})"
+    except ImportError:
+        status["dependencies"]["google-generativeai"] = "missing"
+    except Exception as e:
+        status["dependencies"]["google-generativeai"] = f"error: {str(e)}"
+        
+    # Check FPDF
+    try:
+        import fpdf
+        status["dependencies"]["fpdf2"] = f"installed ({fpdf.__version__})"
+    except ImportError:
+        status["dependencies"]["fpdf2"] = "missing"
+    except Exception as e:
+        status["dependencies"]["fpdf2"] = f"error: {str(e)}"
+
+    return status

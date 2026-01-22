@@ -2,10 +2,23 @@ import type { PinnedTopic, QueryRequest, QueryResponse, ExportRequest } from './
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
+import { supabase } from './lib/supabase'
+
 async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
+    const { data: { session } } = await supabase.auth.getSession()
+    const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...options?.headers,
+    }
+
+    if (session?.access_token) {
+        // @ts-ignore - HeadersInit type flexibility
+        headers['Authorization'] = `Bearer ${session.access_token}`
+    }
+
     const res = await fetch(`${API_URL}${path}`, {
         ...options,
-        headers: { 'Content-Type': 'application/json', ...options?.headers },
+        headers,
     })
     if (!res.ok) throw new Error(`API error: ${res.status}`)
     return res.json()

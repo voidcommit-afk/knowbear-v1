@@ -56,7 +56,7 @@ export default function SearchBar({ onSearch, loading, mode, onModeChange }: Sea
                         : 'text-gray-400 border-transparent hover:text-cyan-400 hover:border-cyan-500/50'
                         }`}
                 >
-                    Deep Research
+                    Brief Dive
                 </button>
             </div>
         </form>

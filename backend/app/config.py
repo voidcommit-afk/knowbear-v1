@@ -1,6 +1,7 @@
 """Configuration and environment variables."""
 
 import os
+import sys
 from functools import lru_cache
 from pydantic_settings import BaseSettings
 
@@ -13,6 +14,8 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     redis_url: str = "redis://localhost:6379"
     cache_ttl: int = 86400  # 24 hours
+    supabase_url: str = ""
+    supabase_anon_key: str = ""
 
     class Config:
         env_file = ".env"
@@ -23,4 +26,9 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """Cached settings instance."""
-    return Settings()
+    settings = Settings()
+    if not settings.gemini_api_key:
+        print("WARNING: GEMINI_API_KEY not set. Gemini models will fail.", file=sys.stderr)
+    if not settings.groq_api_key:
+        print("WARNING: GROQ_API_KEY not set. Groq models will fail.", file=sys.stderr)
+    return settings

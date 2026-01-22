@@ -15,7 +15,12 @@ class ExportRequest(BaseModel):
     format: str = Field(default="txt", pattern="^(txt|json|pdf|md)$")
 
 
-@router.post("/export")
+from app.auth import verify_token
+from fastapi import APIRouter, HTTPException, Depends
+
+# ... (other imports)
+
+@router.post("/export", dependencies=[Depends(verify_token)])
 async def export_explanations(req: ExportRequest) -> StreamingResponse:
     """Export explanations in requested format."""
     if req.format == "txt":

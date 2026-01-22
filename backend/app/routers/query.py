@@ -26,7 +26,12 @@ class QueryResponse(BaseModel):
     cached: bool = False
 
 
-@router.post("/query", response_model=QueryResponse)
+from app.auth import verify_token
+from fastapi import APIRouter, HTTPException, Depends
+
+# ... (other imports)
+
+@router.post("/query", response_model=QueryResponse, dependencies=[Depends(verify_token)])
 async def query_topic(req: QueryRequest) -> QueryResponse:
     """Generate explanations for a topic."""
     try:

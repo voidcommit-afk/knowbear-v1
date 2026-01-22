@@ -20,6 +20,6 @@ Output JSON: {{"best": 0|1, "reason": "brief"}}"""
 
 # Model configs for Groq
 FREE_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
-PREMIUM_MODELS = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768"]
+PREMIUM_MODELS = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "gemini", "gemma"]
 JUDGE_MODEL = "llama-3.1-8b-instant"
 FAST_MODEL = "llama-3.1-8b-instant"
