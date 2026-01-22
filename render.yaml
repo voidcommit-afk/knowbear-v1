@@ -14,3 +14,5 @@ services:
         value: "3.11"
       - key: ENVIRONMENT
         value: production
+      - key: PYTHONPATH
+        value: /opt/render/project/src
