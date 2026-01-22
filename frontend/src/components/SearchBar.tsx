@@ -45,7 +45,7 @@ export default function SearchBar({ onSearch, loading, mode, onModeChange }: Sea
                         : 'text-gray-400 border-transparent hover:text-cyan-400 hover:border-cyan-500/50'
                         }`}
                 >
-                    ⚡ Fast
+                    Fast
                 </button>
                 <button
                     type="button"
@@ -55,7 +55,7 @@ export default function SearchBar({ onSearch, loading, mode, onModeChange }: Sea
                         : 'text-gray-400 border-transparent hover:text-purple-400 hover:border-purple-500/50'
                         }`}
                 >
-                    🔥 Brief Dive
+                    Brief Dive
                 </button>
                 <button
                     type="button"
@@ -65,7 +65,7 @@ export default function SearchBar({ onSearch, loading, mode, onModeChange }: Sea
                         : 'text-gray-400 border-transparent hover:text-emerald-400 hover:border-emerald-500/50'
                         }`}
                 >
-                    🐢 Ensemble
+                    Ensemble
                 </button>
             </div>
         </form>
