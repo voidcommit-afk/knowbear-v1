@@ -14,11 +14,16 @@ class ExportRequest(BaseModel):
     topic: str = Field(..., min_length=1)
     explanations: dict[str, str]
     format: str = Field(default="txt", pattern="^(txt|json|pdf|md)$")
+    premium: bool = False
 
 
 @router.post("/export")
 async def export_explanations(req: ExportRequest) -> StreamingResponse:
     """Export explanations in requested format."""
+    # Gate all export features
+    if not req.premium:
+        raise HTTPException(status_code=403, detail="Exporting is a premium feature. Please upgrade to use this functionality.")
+
     if req.format == "txt":
         content = f"# {req.topic}\n\n"
         for level, text in req.explanations.items():

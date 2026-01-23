@@ -36,15 +36,18 @@ export default function ExportDropdown({ topic, explanations }: ExportDropdownPr
     const handleExport = async (format: 'txt' | 'json' | 'pdf' | 'md') => {
         setIsOpen(false)
 
-        const actionKey = format === 'pdf' ? 'export_pdf' : format === 'md' ? 'export_md' : undefined
-        if (actionKey) {
-            const allowed = checkAction(actionKey)
-            if (!allowed) return
-        }
+        // All exports are now gated
+        const { allowed } = checkAction('export_data')
+        if (!allowed) return
 
         setLoading(true)
         try {
-            const req: ExportRequest = { topic, explanations, format }
+            const req: ExportRequest = {
+                topic,
+                explanations,
+                format,
+                premium: isPro
+            }
             const blob = await exportExplanations(req)
             const url = URL.createObjectURL(blob)
             const a = document.createElement('a')
@@ -66,7 +69,10 @@ export default function ExportDropdown({ topic, explanations }: ExportDropdownPr
                 disabled={loading}
                 className="w-full flex items-center justify-between px-4 py-3 bg-dark-700 hover:bg-dark-600 border border-dark-600 rounded-lg text-white transition-all outline-none focus:border-accent-primary disabled:opacity-50"
             >
-                <span className="font-medium">{loading ? 'Exporting...' : 'Export As'}</span>
+                <div className="flex items-center gap-2">
+                    <span className="font-medium">{loading ? 'Exporting...' : 'Export As'}</span>
+                    {!isPro && <Lock className="w-3 h-3 text-yellow-500" />}
+                </div>
                 <svg
                     className={`w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
                     fill="none"
@@ -87,7 +93,7 @@ export default function ExportDropdown({ topic, explanations }: ExportDropdownPr
                         >
                             <span>{EXPORT_LABELS[fmt]}</span>
                             {/* Visual lock for paywalled formats if not pro */}
-                            {!isPro && (fmt === 'pdf' || fmt === 'md') && (
+                            {!isPro && (
                                 <Lock size={14} className="text-yellow-500" />
                             )}
                         </button>

@@ -1,12 +1,17 @@
+import { Suspense, lazy } from 'react'
 import { Routes, Route } from 'react-router-dom'
-import LandingPage from './pages/LandingPage'
-import AppPage from './pages/AppPage'
+
+
+const LandingPage = lazy(() => import('./pages/LandingPage'))
+const AppPage = lazy(() => import('./pages/AppPage'))
 
 export default function App() {
     return (
-        <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/app" element={<AppPage />} />
-        </Routes>
+        <Suspense fallback={<div className="min-h-screen bg-black text-white flex items-center justify-center">Loading...</div>}>
+            <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/app" element={<AppPage />} />
+            </Routes>
+        </Suspense>
     )
 }

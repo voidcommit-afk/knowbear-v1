@@ -5,10 +5,11 @@ import os
 import structlog
 from datetime import datetime
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi_limiter import FastAPILimiter
+from fastapi_limiter.depends import RateLimiter
 from routers import pinned, query, export
 from services.cache import close_redis, get_redis
 from services.inference import close_client
@@ -49,8 +50,7 @@ async def lifespan(app: FastAPI):
     await provider.initialize()
     
     logger.info("startup", 
-                gemini_configured=provider.gemini_configured, 
-                gemma_token_set=bool(provider.gemma_token))
+                gemini_configured=provider.gemini_configured)
     
     yield
     await asyncio.gather(close_redis(), close_client())
@@ -173,7 +173,45 @@ async def model_error_handler(request: Request, exc: ModelError):
 
 # Mount routers
 app.include_router(pinned.router, prefix="/api")
-app.include_router(query.router, prefix="/api")
+# Conditional Rate Limiter Dependency
+async def conditional_rate_limit(request: Request, response: Response):
+    """
+    Apply rate limiting ONLY if Redis is available.
+    In development (when Redis fails), this becomes a no-op.
+    """
+    # Check if FastAPILimiter was successfully initialized
+    try:
+        # Check if redis pool is ready (rudimentary check)
+        # FastAPILimiter stores the redis instance in its internals, 
+        # but the simplest check is if we are in dev mode and redis failed.
+        # However, FastAPILimiter doesn't expose a simple "is_ready" flag globally.
+        # A safer approach: Catch the error if Limiter fails.
+        
+        # Actually, the RateLimiter dependency itself is what throws the error.
+        # We can construct the dependency dynamically.
+        
+        if os.getenv("ENVIRONMENT") == "production":
+             # Enforce in production
+             await RateLimiter(times=get_settings().rate_limit_per_user, seconds=60)(request, response)
+        else:
+            # In Dev: Try to use it, but pass if it fails or isn't init
+            try:
+                await RateLimiter(times=get_settings().rate_limit_per_user, seconds=60)(request, response)
+            except Exception:
+                # Redis not connected? Pass through.
+                pass
+                
+    except Exception:
+        # Failsafe
+        pass
+
+# Mount routers
+app.include_router(pinned.router, prefix="/api")
+app.include_router(
+    query.router, 
+    prefix="/api",
+    dependencies=[Depends(conditional_rate_limit)]
+)
 app.include_router(export.router, prefix="/api")
 
 

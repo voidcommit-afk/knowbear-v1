@@ -8,10 +8,11 @@ export interface QueryRequest {
     topic: string
     levels?: string[]
     premium?: boolean
-    mode?: 'fast' | 'ensemble' | 'brief_dive'
+    bypass_cache?: boolean
+    mode?: 'fast' | 'ensemble' | 'deep_dive' | 'technical_depth'
 }
 
-export type Mode = 'fast' | 'ensemble' | 'brief_dive'
+export type Mode = 'fast' | 'ensemble' | 'deep_dive' | 'technical_depth'
 
 export interface QueryResponse {
     topic: string
@@ -23,8 +24,9 @@ export interface ExportRequest {
     topic: string
     explanations: Record<string, string>
     format: 'txt' | 'json' | 'pdf' | 'md'
+    premium?: boolean
 }
 
-export const FREE_LEVELS = ['eli5', 'eli10', 'eli12', 'eli15', 'meme', 'classic60', 'gentle70', 'warm80'] as const
-export const PREMIUM_LEVELS = ['technical', 'systemic', 'diagram'] as const
+export const FREE_LEVELS = ['eli5', 'eli10', 'eli12', 'eli15', 'meme'] as const
+export const PREMIUM_LEVELS = ['classic60', 'gentle70', 'warm80', 'technical', 'systemic', 'diagram'] as const
 export type Level = (typeof FREE_LEVELS)[number] | (typeof PREMIUM_LEVELS)[number]

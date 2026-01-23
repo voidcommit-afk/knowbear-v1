@@ -12,3 +12,5 @@ tenacity>=8.2.3
 orjson>=3.9.13
 structlog>=24.1.0
 fastapi-limiter>=0.1.6
+groq>=0.4.2
+

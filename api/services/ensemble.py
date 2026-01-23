@@ -16,12 +16,12 @@ async def ensemble_generate(topic: str, level: str, use_premium: bool = False, m
         except Exception as e:
             raise RuntimeError(f"Fast model failed: {e}")
 
-    if mode == "brief_dive":
-        # Brief Dive: single high-quality model (GPT-OSS or DeepSeek)
+    if mode == "deep_dive":
+        # Deep Dive: single high-quality model (GPT-OSS or DeepSeek)
         try:
             return await generate_explanation(topic, level, BRIEF_DIVE_MODELS[0], is_pro=use_premium)
         except Exception as e:
-            raise RuntimeError(f"Brief Dive model failed: {e}")
+            raise RuntimeError(f"Deep Dive model failed: {e}")
 
     models = PREMIUM_MODELS if use_premium else FREE_MODELS
     tasks = [generate_explanation(topic, level, m, is_pro=use_premium) for m in models]

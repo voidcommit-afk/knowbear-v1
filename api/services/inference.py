@@ -6,14 +6,12 @@ from config import get_settings
 from prompts import PROMPTS
 from logging_config import logger
 
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-
-# Global client for connection pooling
-_client = httpx.AsyncClient(timeout=30.0)
-
+# Global client removed as we use ModelProvider now
+# GROQ_URL removed
 
 async def close_client():
-    await _client.aclose()
+    """No-op as ModelProvider manages its own clients."""
+    pass
 
 
 @retry(
@@ -24,37 +22,27 @@ async def close_client():
 )
 async def call_model(model: str, prompt: str, max_tokens: int = 1024, **kwargs) -> str:
     """Call API with given model and prompt."""
+    from services.model_provider import ModelProvider
     
-    # Check for new models first
-    if model in ["gemini", "gemma"]:
-        from services.model_provider import ModelProvider
-        try:
-            provider = ModelProvider.get_instance()
-            return await provider.generate_text(model, prompt, **kwargs)
-        except Exception as e:
-             raise e
-        
-    # Fallback to Groq for everything else
-    settings = get_settings()
-    headers = {
-        "Authorization": f"Bearer {settings.groq_api_key}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "model": model,
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": max_tokens,
-        "temperature": 0.7,
-    }
+    provider = ModelProvider.get_instance()
     
+    # Determine task type based on model or content if not explicitly passed
+    task = kwargs.get("task", "general")
+    if model in ["llama-3.3-70b-versatile", "deep_dive"]:
+         task = "coding"
+            
+    # Delegate to the intelligent router
     try:
-        resp = await _client.post(GROQ_URL, json=payload, headers=headers)
-        resp.raise_for_status()
-        data = resp.json()
-        return data["choices"][0]["message"]["content"].strip()
-    except httpx.HTTPError as e:
-        logger.error("groq_api_error", error=str(e), model=model)
-        raise
+        result = await provider.route_inference(
+            prompt=prompt, 
+            task=task,
+            **kwargs
+        )
+        return result["content"]
+    except Exception as e:
+         logger.error("inference_failed", error=str(e), model=model)
+         raise e
+
 
 
 async def generate_explanation(topic: str, level: str, model: str, **kwargs) -> str:

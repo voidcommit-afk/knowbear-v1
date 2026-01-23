@@ -1,9 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { getPinnedTopics, queryTopic } from '../api'
-import type { PinnedTopic, QueryResponse, Level } from '../types'
+import { useState, useCallback, useRef, useEffect } from 'react'
+import { queryTopic } from '../api'
+import type { QueryResponse, Level, Mode } from '../types'
 import { FREE_LEVELS } from '../types'
 import SearchBar from '../components/SearchBar'
-import PinnedTopics from '../components/PinnedTopics'
 import LevelDropdown from '../components/LevelDropdown'
 import ExplanationCard from '../components/ExplanationCard'
 import ExportDropdown from '../components/ExportDropdown'
@@ -13,12 +12,12 @@ import { UpgradeModal } from '../components/UpgradeModal'
 import { RefreshCcw } from 'lucide-react'
 
 export default function AppPage() {
-    const [pinned, setPinned] = useState<PinnedTopic[]>([])
+    // const [pinned, setPinned] = useState<PinnedTopic[]>([])
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState<QueryResponse | null>(null)
     const [selectedLevel, setSelectedLevel] = useState<Level>('eli5')
     const [error, setError] = useState<string | null>(null)
-    const [mode, setMode] = useState<'fast' | 'ensemble' | 'brief_dive'>('brief_dive')
+    const [mode, setMode] = useState<Mode>('fast')
     const [fetchingLevels, setFetchingLevels] = useState<Set<Level>>(new Set())
 
     const { checkAction, recordAction, showPremiumModal, setShowPremiumModal } = useUsageGate()
@@ -26,11 +25,6 @@ export default function AppPage() {
     // Use a ref to track current search topic to avoid race conditions
     const currentTopicRef = useRef<string | null>(null)
 
-    useEffect(() => {
-        getPinnedTopics()
-            .then(setPinned)
-            .catch(() => { })
-    }, [])
 
     const fetchLevel = useCallback(async (topic: string, level: Level) => {
         if (!topic) return
@@ -65,12 +59,24 @@ export default function AppPage() {
         }
     }, [mode])
 
-    const handleSearch = useCallback(async (topic: string) => {
-        // Usage gate check (handles both Guest and Pro limits if any)
-        if (!checkAction('search')) {
+    const handleSearch = useCallback(async (topic: string, forceRefresh: boolean = false) => {
+        // Usage gate check (handles Guest limits and Soft Gates like Deep Dive)
+        const { allowed: searchAllowed, downgraded } = checkAction('search', mode)
+
+        if (!searchAllowed) {
             return
         }
-        recordAction('search')
+
+        // Gating for Premium Modes (Hard Gate execution check)
+        if (mode === 'ensemble' || mode === 'technical_depth') {
+            const { allowed } = checkAction('premium_mode')
+            if (!allowed) return
+        }
+
+        // Determine actual mode to use (Downgrade if needed)
+        const effectiveMode = downgraded ? 'fast' : mode
+
+        recordAction('search', mode)
 
         setLoading(true)
         setError(null)
@@ -83,14 +89,15 @@ export default function AppPage() {
             const res = await queryTopic({
                 topic,
                 levels: [selectedLevel],
-                mode
+                mode: effectiveMode,
+                bypass_cache: forceRefresh
             })
 
             if (currentTopicRef.current === topic) {
                 setResult(res)
 
-                // Background fetch others if in fast mode to pre-cache
-                if (mode === 'fast') {
+                // Background fetch others if in fast mode (or downgraded to fast) to pre-cache
+                if (effectiveMode === 'fast') {
                     FREE_LEVELS.forEach(lvl => {
                         if (lvl !== selectedLevel) {
                             fetchLevel(topic, lvl)
@@ -103,7 +110,7 @@ export default function AppPage() {
         } finally {
             setLoading(false)
         }
-    }, [mode, selectedLevel, fetchLevel])
+    }, [mode, selectedLevel, fetchLevel, checkAction, recordAction])
 
     const handleGoHome = useCallback(() => {
         setResult(null)
@@ -193,7 +200,8 @@ export default function AppPage() {
                         </div>
                     )}
 
-                    {result && (
+                    {/* Result Section - Hidden while global loading is active to prevent duplicates */}
+                    {result && !loading && (
                         <section className="space-y-6">
                             <div className="border-b border-dark-700 pb-4">
                                 <h2 className="text-2xl font-semibold text-white text-center md:text-left">{result.topic}</h2>
@@ -203,13 +211,13 @@ export default function AppPage() {
                                 <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
                                     <LevelDropdown selected={selectedLevel} onChange={setSelectedLevel} />
                                     <button
-                                        onClick={() => handleSearch(result.topic)}
+                                        onClick={() => handleSearch(result.topic, true)}
                                         disabled={loading}
                                         className="flex items-center gap-2 px-4 py-3 bg-dark-700 hover:bg-dark-600 border border-dark-600 rounded-lg text-white transition-all disabled:opacity-50 w-full md:w-auto justify-center"
-                                        title="Recreate Response"
+                                        title="Regenerate Answer"
                                     >
                                         <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                                        <span className="md:hidden lg:inline">Recreate</span>
+                                        <span className="md:hidden lg:inline">Regenerate Answer</span>
                                     </button>
                                 </div>
                                 <ExportDropdown topic={result.topic} explanations={result.explanations} />
@@ -228,11 +236,8 @@ export default function AppPage() {
                                 </div>
                             )}
 
-
                         </section>
                     )}
-
-                    {!result && !loading && <PinnedTopics topics={pinned} onSelect={handleSearch} />}
                 </main>
 
                 <footer className="mt-16 text-center text-gray-600 text-sm pb-4">
