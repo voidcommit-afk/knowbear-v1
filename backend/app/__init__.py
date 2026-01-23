@@ -1,1 +1,0 @@
-"""KnowBear backend package."""
