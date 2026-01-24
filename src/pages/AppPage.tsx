@@ -8,9 +8,8 @@ import ExportDropdown from '../components/ExportDropdown'
 import Spinner from '../components/Spinner'
 import { useUsageGate } from '../hooks/useUsageGate'
 import { UpgradeModal } from '../components/UpgradeModal'
-import { LoginButton } from '../components/LoginButton'
-import { RefreshCcw, User, Crown } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
+import { NavBar } from '../components/NavBar'
+import { RefreshCcw } from 'lucide-react'
 
 export default function AppPage() {
     // const [pinned, setPinned] = useState<PinnedTopic[]>([])
@@ -21,8 +20,7 @@ export default function AppPage() {
     const [mode, setMode] = useState<Mode>('fast')
     const [fetchingLevels, setFetchingLevels] = useState<Set<Level>>(new Set())
 
-    const { user } = useAuth()
-    const { checkAction, recordAction, showPremiumModal, setShowPremiumModal, isPro } = useUsageGate()
+    const { checkAction, recordAction, showPremiumModal, setShowPremiumModal } = useUsageGate()
 
     // Use a ref to track current search topic to avoid race conditions
     const currentTopicRef = useRef<string | null>(null)
@@ -134,7 +132,10 @@ export default function AppPage() {
 
             {/* Content Container */}
             <div className="relative z-10 w-full max-w-4xl mx-auto flex flex-col min-h-[90vh]">
-                <header className="text-center mb-12 flex flex-col items-center">
+
+                <NavBar />
+
+                <header className="text-center mb-12 mt-16 flex flex-col items-center">
                     <button
                         onClick={handleGoHome}
                         className="group flex flex-col md:flex-row items-center gap-3 transition-transform hover:scale-105 active:scale-95 focus:outline-none cursor-pointer"
@@ -147,20 +148,7 @@ export default function AppPage() {
                     </button>
                     <p className="text-gray-400 mt-2 text-lg">AI-powered explanations for any topic</p>
 
-                    {/* User Status Badge */}
-                    <div className="absolute top-4 right-4 md:top-8 md:right-8 flex flex-col items-end gap-2">
-                        {!user ? (
-                            <div className="flex items-center gap-3">
-                                <span className="text-gray-400 text-sm hidden md:inline">Guest User</span>
-                                <LoginButton className="!py-1.5 !px-4 text-xs bg-dark-700/50 hover:bg-dark-600 text-white border-dark-600 shadow-none hover:shadow-lg" />
-                            </div>
-                        ) : (
-                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${isPro ? 'bg-amber-500/10 border-amber-500/50 text-amber-400' : 'bg-daark-700/50 border-dark-600 text-gray-400'}`}>
-                                {isPro ? <Crown size={14} /> : <User size={14} />}
-                                <span className="text-xs font-medium">{isPro ? 'Pro User' : 'Free User'}</span>
-                            </div>
-                        )}
-                    </div>
+
                 </header>
 
                 <main className="space-y-8 flex-grow">

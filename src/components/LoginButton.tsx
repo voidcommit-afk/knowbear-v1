@@ -10,7 +10,7 @@ export const LoginButton: React.FC<{ className?: string }> = ({ className = '' }
     return (
         <button
             onClick={signInWithGoogle}
-            className={`group relative flex items-center justify-center gap-3 px-6 py-2.5 bg-white hover:bg-gray-50 text-gray-700 rounded-full transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.08)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] border border-gray-200 hover:border-gray-300 font-roboto font-medium text-sm sm:text-base ${className}`}
+            className={`group flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-gray-700 rounded-full transition-all duration-300 border border-gray-200 hover:border-gray-300 font-medium ${className}`}
             aria-label="Sign in with Google"
         >
             <div className="flex-shrink-0">
