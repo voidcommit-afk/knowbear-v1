@@ -14,8 +14,13 @@ async def get_redis() -> redis.Redis:
     global _client
     if _client is None:
         settings = get_settings()
+        url = settings.redis_url
+        # Ensure URL has proper prefix for redis-py
+        if not url.startswith("redis://") and not url.startswith("rediss://"):
+            url = f"redis://{url}"
+        
         # Decode responses=False for orjson (bytes)
-        _client = redis.from_url(settings.redis_url, decode_responses=False)
+        _client = redis.from_url(url, decode_responses=False)
     return _client
 
 
