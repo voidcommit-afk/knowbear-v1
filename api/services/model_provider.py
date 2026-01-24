@@ -74,9 +74,7 @@ class ModelProvider:
             if not self.gemini_configured:
                  raise ModelUnavailable("Gemini is not configured for heavy/visual tasks.")
             
-            model_name = "gemini-2.0-flash" if image_data else "gemini-2.0-flash-lite-preview-02-05"
-            # Standardize model names; 'gemini-2.5' was a placeholder.
-            model_name = "gemini-2.0-flash" if image_data else "gemini-2.0-flash"
+            model_name = "gemini-2.0-flash"
 
             try:
                 contents = [prompt]
@@ -107,26 +105,42 @@ class ModelProvider:
                 print(f"HF Error: {e}") 
                 pass 
 
-        # 3. HIGH IQ LOGIC PATH (Groq)
-        target_model = "llama-3.1-8b-instant" 
+        # 3. INTELLIGENT ROUTING (Groq)
+        target_model = "llama-3.1-8b-instant" # Default for speed/simple tasks
+        max_tokens = 1024
         
-        if "deep" in task.lower() or "gpt-oss" in str(kwargs.get("model", "")).lower():
-             target_model = "llama-3.3-70b-versatile"
+        # Mode/Task based routing
+        mode = kwargs.get("mode", "").lower()
         
-        elif task == "coding":
-            target_model = "llama-3.3-70b-versatile"
-
-        # 4. EXECUTION (With Fallback)
+        # A. Deep Reasoning / Logic
+        if mode == "deep_dive" or "deep" in task.lower() or "reasoning" in task.lower():
+            target_model = "deepseek-r1-distill-llama-70b"
+            max_tokens = 4096 # Reasoning models output more
+            
+        # B. Coding / Technical
+        elif task == "coding" or mode == "technical_depth" or "code" in task.lower():
+            target_model = "qwen-2.5-32b"
+            max_tokens = 2048
+            
+        # C. Multilingual Support
+        # Simple heuristic: if we detect non-ascii or specific flag
+        elif kwargs.get("multilingual", False) or any(ord(c) > 127 for c in prompt[:100]):
+             target_model = "moonshotai/kimi-k2-instruct-0905"
+             max_tokens = 2048
+             
+        # D. Simple / Fast Modes (Explicit)
+        elif mode in ["fast", "eli5", "eli10"]:
+            target_model = "gpt-oss-20b"
+            # Fallback to Llama 3.1 8b is handled by the general fallback chain if this fails, 
+            # or we could implement a specific try/except here, but the global fallback is safer.
+            
+        # 4. EXECUTION
         if not self.groq_client:
              return await self._fallback_chain(prompt)
 
-        max_tokens = 1024 
         is_pro = kwargs.get("is_pro", False) or kwargs.get("premium", False)
-        
-        if not is_pro:
-             max_tokens = 512
-        elif task == "coding" or "deep" in task:
-             max_tokens = 2048
+        if not is_pro and max_tokens > 1024:
+             max_tokens = 1024 # Cap free tier unless critical
 
         try:
             completion = await self.groq_client.chat.completions.create(
