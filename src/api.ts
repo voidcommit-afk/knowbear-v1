@@ -45,3 +45,11 @@ export async function exportExplanations(req: ExportRequest): Promise<Blob> {
     if (!res.ok) throw new Error(`Export error: ${res.status}`)
     return res.blob()
 }
+
+export async function getHistory(): Promise<any[]> {
+    return fetchAPI('/api/history')
+}
+
+export async function deleteHistoryItem(id: string): Promise<void> {
+    return fetchAPI(`/api/history/${id}`, { method: 'DELETE' })
+}

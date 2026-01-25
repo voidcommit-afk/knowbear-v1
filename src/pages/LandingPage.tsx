@@ -56,8 +56,17 @@ export default function LandingPage() {
                         </span>
                     </button>
 
-                    <LoginButton className="group relative flex items-center justify-center gap-3 px-8 py-4 bg-white hover:bg-gray-50 text-gray-900 rounded-full font-bold text-lg transition-all hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)]" />
+                    <LoginButton className="group relative flex items-center justify-center gap-3 px-8 py-4 bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-md rounded-full font-bold text-lg transition-all hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.05)]" />
                 </motion.div>
+
+                <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 1 }}
+                    className="text-gray-500 text-sm mt-8"
+                >
+                    Login to save your search history and access premium modes.
+                </motion.p>
             </div>
         </div>
     )

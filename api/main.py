@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
-from routers import pinned, query, export
+from routers import pinned, query, export, history
 from services.cache import close_redis, get_redis
 from services.inference import close_client
 from services.model_provider import ModelProvider, ModelError, RequiresPro, ModelUnavailable
@@ -163,7 +163,7 @@ async def model_error_handler(request: Request, exc: ModelError):
     )
 
 
-app.include_router(pinned.router, prefix="/api")
+# app.include_router(pinned.router, prefix="/api") removed - duplicate below
 
 async def conditional_rate_limit(request: Request, response: Response):
     """
@@ -189,12 +189,7 @@ app.include_router(
     dependencies=[Depends(conditional_rate_limit)]
 )
 app.include_router(export.router, prefix="/api")
-
-
-# Catch-all route for debugging (should be last)
-@app.get("/{path:path}")
-async def catch_all(path: str):
-    return {"message": f"Catch-all route hit: /{path}", "status": "Backend is running!"}
+app.include_router(history.router, prefix="/api")
 
 
 @app.get("/api/health", tags=["health"])
@@ -229,3 +224,10 @@ async def health():
         status["fpdf2"] = f"✗ {str(e)}"
 
     return status
+
+
+# Catch-all route for debugging (should be last)
+@app.get("/{path:path}")
+async def catch_all(path: str):
+    return {"message": f"Catch-all route hit: /{path}", "status": "Backend is running!"}
+

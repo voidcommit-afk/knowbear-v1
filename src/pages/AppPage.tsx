@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { queryTopic } from '../api'
 import type { QueryResponse, Level, Mode } from '../types'
-import { FREE_LEVELS } from '../types'
 import SearchBar from '../components/SearchBar'
 import LevelDropdown from '../components/LevelDropdown'
 import ExplanationCard from '../components/ExplanationCard'
@@ -10,6 +9,7 @@ import Spinner from '../components/Spinner'
 import { useUsageGate } from '../hooks/useUsageGate'
 import { UpgradeModal } from '../components/UpgradeModal'
 import { RefreshCcw } from 'lucide-react'
+import Sidebar from '../components/Sidebar'
 
 export default function AppPage() {
     // const [pinned, setPinned] = useState<PinnedTopic[]>([])
@@ -19,6 +19,7 @@ export default function AppPage() {
     const [error, setError] = useState<string | null>(null)
     const [mode, setMode] = useState<Mode>('fast')
     const [fetchingLevels, setFetchingLevels] = useState<Set<Level>>(new Set())
+    const [historyRefresh, setHistoryRefresh] = useState(0)
 
     const { checkAction, recordAction, showPremiumModal, setShowPremiumModal } = useUsageGate()
 
@@ -96,14 +97,9 @@ export default function AppPage() {
             if (currentTopicRef.current === topic) {
                 setResult(res)
 
-                // Background fetch others if in fast mode (or downgraded to fast) to pre-cache
-                if (effectiveMode === 'fast') {
-                    FREE_LEVELS.forEach(lvl => {
-                        if (lvl !== selectedLevel) {
-                            fetchLevel(topic, lvl)
-                        }
-                    })
-                }
+                // OPTIMIZATION: Removed aggressive pre-fetching of all levels to save tokens/costs.
+                // Levels will be lazy-loaded only when the user selects them via fetchLevel useEffect.
+                setHistoryRefresh(prev => prev + 1)
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to generate')
@@ -128,121 +124,131 @@ export default function AppPage() {
     }, [selectedLevel, result, fetchingLevels, fetchLevel])
 
     return (
-        <div className="min-h-screen bg-black px-4 py-8 relative overflow-hidden">
-            {/* Starry Background */}
-            <div className="stars"></div>
-            <div className="stars stars-2"></div>
+        <div className="flex min-h-screen bg-black overflow-hidden">
+            <Sidebar
+                onSelectTopic={(topic) => handleSearch(topic)}
+                refreshTrigger={historyRefresh}
+            />
 
-            {/* Content Container */}
-            <div className="relative z-10 w-full max-w-4xl mx-auto flex flex-col min-h-[90vh]">
-                <header className="text-center mb-12 flex flex-col items-center">
-                    <button
-                        onClick={handleGoHome}
-                        className="group flex flex-col md:flex-row items-center gap-3 transition-transform hover:scale-105 active:scale-95 focus:outline-none cursor-pointer"
-                        aria-label="KnowBear Home"
-                    >
-                        <h1 className="text-4xl md:text-5xl font-bold text-white flex flex-col md:flex-row items-center gap-3">
-                            <img src="/favicon.svg" alt="KnowBear Logo" className="w-16 h-16 drop-shadow-[0_0_15px_rgba(6,182,212,0.5)] group-hover:drop-shadow-[0_0_25px_rgba(6,182,212,0.8)] transition-all" />
-                            <span>Know<span className="text-cyan-500 drop-shadow-[0_0_10px_rgba(6,182,212,0.8)]">Bear</span></span>
-                        </h1>
-                    </button>
-                    <p className="text-gray-400 mt-2 text-lg">AI-powered explanations for any topic</p>
-                </header>
+            {/* Main Content Area */}
+            <div className="flex-1 min-w-0 flex flex-col relative transition-all duration-300 pl-16 md:pl-64">
+                {/* Starry Background */}
+                <div className="stars"></div>
+                <div className="stars stars-2"></div>
 
-                <main className="space-y-8 flex-grow">
-                    <SearchBar
-                        onSearch={handleSearch}
-                        loading={loading}
-                        mode={mode}
-                        onModeChange={setMode}
-                    />
+                {/* Content Container */}
+                <div className="relative z-10 w-full max-w-4xl mx-auto flex flex-col min-h-[90vh] py-8 px-4 md:px-8">
 
-                    {!result && !loading && (
-                        <section className="bg-dark-800/50 backdrop-blur-sm border border-dark-700 rounded-2xl p-6">
-                            <h3 className="text-xl font-semibold text-white mb-4">
-                                Popular Topics
-                            </h3>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                {[
-                                    { topic: 'blockchain', description: 'Distributed ledger technology' },
-                                    { topic: 'quantum computing', description: 'Quantum mechanics in computing' },
-                                    { topic: 'artificial intelligence', description: 'Machine learning & neural networks' },
-                                    { topic: 'climate change', description: 'Environmental science' },
-                                    { topic: 'cryptocurrency', description: 'Bitcoin, Ethereum & NFTs' },
-                                    { topic: 'space exploration', description: 'SpaceX, NASA & beyond' },
-                                ].map(({ topic, description }) => (
-                                    <button
-                                        key={topic}
-                                        onClick={() => handleSearch(topic)}
-                                        disabled={loading}
-                                        className="group flex flex-col items-start gap-2 p-4 bg-dark-700/50 hover:bg-dark-700 border border-dark-600 hover:border-cyan-500/50 rounded-xl transition-all text-left"
-                                    >
-                                        <div className="flex flex-col">
-                                            <span className="text-white font-medium text-sm group-hover:text-cyan-400 transition-colors">{topic}</span>
-                                            <span className="text-gray-400 text-xs">{description}</span>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </section>
-                    )}
+                    <header className="text-center mb-12 mt-10 flex flex-col items-center">
+                        <button
+                            onClick={handleGoHome}
+                            className="group flex flex-col md:flex-row items-center gap-3 transition-transform hover:scale-105 active:scale-95 focus:outline-none cursor-pointer"
+                            aria-label="KnowBear Home"
+                        >
+                            <h1 className="text-4xl md:text-5xl font-bold text-white flex flex-col md:flex-row items-center gap-3">
+                                <img src="/favicon.svg" alt="KnowBear Logo" className="w-16 h-16 drop-shadow-[0_0_15px_rgba(6,182,212,0.5)] group-hover:drop-shadow-[0_0_25px_rgba(6,182,212,0.8)] transition-all" />
+                                <span>Know<span className="text-cyan-500 drop-shadow-[0_0_10px_rgba(6,182,212,0.8)]">Bear</span></span>
+                            </h1>
+                        </button>
+                        <p className="text-gray-400 mt-2 text-lg">AI-powered explanations for any topic</p>
+                    </header>
 
-                    {loading && (
-                        <div className="py-12 flex flex-col items-center">
-                            <Spinner size="lg" />
-                            <p className="text-center text-gray-400 mt-4 animate-pulse">Generating explanation for {selectedLevel}...</p>
-                        </div>
-                    )}
+                    <main className="space-y-8 flex-grow">
+                        <SearchBar
+                            onSearch={handleSearch}
+                            loading={loading}
+                            mode={mode}
+                            onModeChange={setMode}
+                        />
 
-                    {error && (
-                        <div className="bg-red-900/30 border border-red-500 text-red-300 p-4 rounded-lg">
-                            {error}
-                        </div>
-                    )}
-
-                    {/* Result Section - Hidden while global loading is active to prevent duplicates */}
-                    {result && !loading && (
-                        <section className="space-y-6">
-                            <div className="border-b border-dark-700 pb-4">
-                                <h2 className="text-2xl font-semibold text-white text-center md:text-left">{result.topic}</h2>
-                            </div>
-
-                            <div className="flex flex-col md:flex-row md:justify-between items-center gap-4">
-                                <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-                                    <LevelDropdown selected={selectedLevel} onChange={setSelectedLevel} />
-                                    <button
-                                        onClick={() => handleSearch(result.topic, true)}
-                                        disabled={loading}
-                                        className="flex items-center gap-2 px-4 py-3 bg-dark-700 hover:bg-dark-600 border border-dark-600 rounded-lg text-white transition-all disabled:opacity-50 w-full md:w-auto justify-center"
-                                        title="Regenerate Answer"
-                                    >
-                                        <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                                        <span className="md:hidden lg:inline">Regenerate Answer</span>
-                                    </button>
+                        {!result && !loading && (
+                            <section className="bg-dark-800/50 backdrop-blur-sm border border-dark-700 rounded-2xl p-6 shadow-2xl">
+                                <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                                    <span className="w-2 h-6 bg-cyan-500 rounded-full mr-1"></span>
+                                    Popular Topics
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                    {[
+                                        { topic: 'blockchain', description: 'Distributed ledger technology' },
+                                        { topic: 'quantum computing', description: 'Quantum mechanics in computing' },
+                                        { topic: 'artificial intelligence', description: 'Machine learning & neural networks' },
+                                        { topic: 'climate change', description: 'Environmental science' },
+                                        { topic: 'cryptocurrency', description: 'Bitcoin, Ethereum & NFTs' },
+                                        { topic: 'space exploration', description: 'SpaceX, NASA & beyond' },
+                                    ].map(({ topic, description }) => (
+                                        <button
+                                            key={topic}
+                                            onClick={() => handleSearch(topic)}
+                                            disabled={loading}
+                                            className="group flex flex-col items-start gap-2 p-4 bg-dark-700/50 hover:bg-dark-700 border border-dark-600 hover:border-cyan-500/50 rounded-xl transition-all text-left shadow-lg"
+                                        >
+                                            <div className="flex flex-col">
+                                                <span className="text-white font-medium text-sm group-hover:text-cyan-400 transition-colors uppercase tracking-wide">{topic}</span>
+                                                <span className="text-gray-400 text-xs mt-1">{description}</span>
+                                            </div>
+                                        </button>
+                                    ))}
                                 </div>
-                                <ExportDropdown topic={result.topic} explanations={result.explanations} />
+                            </section>
+                        )}
+
+                        {loading && (
+                            <div className="py-12 flex flex-col items-center">
+                                <Spinner size="lg" />
+                                <p className="text-center text-gray-400 mt-4 animate-pulse">Generating explanation for {selectedLevel}...</p>
                             </div>
+                        )}
 
-                            {fetchingLevels.has(selectedLevel) ? (
-                                <div className="bg-dark-700/50 backdrop-blur-sm rounded-lg p-12 flex flex-col items-center border border-dark-600">
-                                    <Spinner size="md" />
-                                    <p className="text-gray-400 mt-4">Brewing {selectedLevel} explanation...</p>
+                        {error && (
+                            <div className="bg-red-900/30 border border-red-500 text-red-300 p-4 rounded-lg">
+                                {error}
+                            </div>
+                        )}
+
+                        {/* Result Section */}
+                        {result && !loading && (
+                            <section className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                <div className="border-b border-dark-700 pb-4">
+                                    <h2 className="text-2xl md:text-3xl font-bold text-white text-center md:text-left tracking-tight">{result.topic}</h2>
                                 </div>
-                            ) : result.explanations[selectedLevel] ? (
-                                <ExplanationCard level={selectedLevel} content={result.explanations[selectedLevel]} />
-                            ) : (
-                                <div className="bg-dark-700/50 backdrop-blur-sm rounded-lg p-12 text-center text-gray-500 italic border border-dark-600">
-                                    No explanation available for this level.
+
+                                <div className="flex flex-col md:flex-row md:justify-between items-center gap-4">
+                                    <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+                                        <LevelDropdown selected={selectedLevel} onChange={setSelectedLevel} />
+                                        <button
+                                            onClick={() => handleSearch(result.topic, true)}
+                                            disabled={loading}
+                                            className="flex items-center gap-2 px-4 py-3 bg-dark-700 hover:bg-dark-600 border border-dark-600 rounded-lg text-white transition-all disabled:opacity-50 w-full md:w-auto justify-center"
+                                            title="Regenerate"
+                                        >
+                                            <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                                            <span className="md:hidden lg:inline text-sm font-medium">Regenerate</span>
+                                        </button>
+                                    </div>
+                                    <ExportDropdown topic={result.topic} explanations={result.explanations} />
                                 </div>
-                            )}
 
-                        </section>
-                    )}
-                </main>
+                                {fetchingLevels.has(selectedLevel) ? (
+                                    <div className="bg-dark-800/50 backdrop-blur-sm rounded-xl p-16 flex flex-col items-center border border-dark-700 shadow-xl">
+                                        <Spinner size="md" />
+                                        <p className="text-gray-400 mt-4 font-medium italic">Brewing {selectedLevel.toUpperCase()} explanation...</p>
+                                    </div>
+                                ) : result.explanations[selectedLevel] ? (
+                                    <ExplanationCard level={selectedLevel} content={result.explanations[selectedLevel]} />
+                                ) : (
+                                    <div className="bg-dark-800/50 backdrop-blur-sm rounded-xl p-16 text-center border border-dark-700 shadow-xl">
+                                        <p className="text-gray-500 italic">No explanation available for this level.</p>
+                                    </div>
+                                )}
 
-                <footer className="mt-16 text-center text-gray-600 text-sm pb-4">
-                    © 2026 KnowBear
-                </footer>
+                            </section>
+                        )}
+                    </main>
+
+                    <footer className="mt-auto pt-16 text-center text-gray-600 text-xs pb-4 tracking-widest uppercase">
+                        © 2026 KnowBear • Smart Explanations
+                    </footer>
+                </div>
             </div>
 
             <UpgradeModal isOpen={showPremiumModal} onClose={() => setShowPremiumModal(false)} />

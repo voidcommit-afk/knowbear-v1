@@ -4,7 +4,7 @@ from config import get_settings
 from supabase import create_client, Client
 from supabase_auth.errors import AuthApiError
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 def get_supabase() -> Client:
     settings = get_settings()
@@ -14,8 +14,17 @@ def get_supabase() -> Client:
         return None
     return create_client(settings.supabase_url, settings.supabase_anon_key)
 
+def get_supabase_admin() -> Client:
+    settings = get_settings()
+    if not settings.supabase_url or not settings.supabase_service_role_key:
+        print("Warning: Supabase Service Role Key missing")
+        return None
+    return create_client(settings.supabase_url, settings.supabase_service_role_key)
+
 async def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
     """Verify the Supabase JWT token."""
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Missing authentication credentials")
     token = credentials.credentials
     supabase = get_supabase()
     
@@ -38,3 +47,29 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Security(secu
     except Exception as e:
         print(f"Auth Validation Error: {e}")
         raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+
+async def verify_token_optional(credentials: HTTPAuthorizationCredentials = Security(security)):
+    """Optionally verify the Supabase JWT token."""
+    if not credentials or not credentials.credentials:
+        return None
+    try:
+        return await verify_token(credentials)
+    except HTTPException:
+        return None
+
+def ensure_user_exists(user):
+    """Ensure the user exists in the public.users table."""
+    supabase = get_supabase_admin()
+    if not supabase:
+        return
+    
+    try:
+        # Upsert user data
+        supabase.table("users").upsert({
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.user_metadata.get("full_name"),
+            "avatar_url": user.user_metadata.get("avatar_url")
+        }).execute()
+    except Exception as e:
+        print(f"Failed to ensure user exists: {e}")

@@ -32,9 +32,7 @@ Explain {topic} for a 15-year-old: more depth, key concepts explained clearly, c
 
 Output in plain text only, no markdown, no bolding, no headers. Just paragraphs.""",
 
-    "meme": """Think step-by-step: 1. Identify the core concept. 2. Find a humorous, relatable angle. 3. Craft punchy one-liner.
-
-Explain {topic} as a funny one-liner meme with relatable analogy. Make it punchy and shareable.
+    "meme": """Explain {topic} as a funny one-liner meme with relatable analogy. Make it punchy and shareable.
 
 Output in plain text only.""",
 
