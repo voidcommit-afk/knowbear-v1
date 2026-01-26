@@ -9,7 +9,7 @@ from utils import sanitize_topic, topic_cache_key
 from services.cache import cache_get, cache_set
 from services.ensemble import ensemble_generate
 from services.inference import generate_stream_explanation
-from auth import verify_token_optional, get_supabase_admin, ensure_user_exists
+from auth import verify_token_optional, get_supabase_admin, ensure_user_exists, check_is_pro
 from logging_config import logger
 import json
 
@@ -41,6 +41,17 @@ async def query_topic(
     """Generate explanations for a topic."""
     
     # Gating: Enforce Premium for 'ensemble'/'technical_depth', downgrading to 'fast' if needed (UX decision)
+    # Server-Side Verification: We trust the backend's knowledge of the user, not the client request.
+    if req.premium:
+        # User claims to be premium. Verify.
+        is_verified_pro = False
+        if auth_data:
+            user = auth_data["user"]
+            is_verified_pro = await check_is_pro(user.id)
+        
+        if not is_verified_pro:
+            req.premium = False # Downgrade if verification fails
+            
     if (req.mode == "ensemble" or req.mode == "technical_depth") and not req.premium:
         req.mode = "fast"  
 
@@ -112,6 +123,15 @@ async def query_topic_stream(
     """Stream explanations for a topic."""
     
     # Gating: Enforce Premium for 'ensemble'/'technical_depth'
+    if req.premium:
+        is_verified_pro = False
+        if auth_data:
+            user = auth_data["user"]
+            is_verified_pro = await check_is_pro(user.id)
+        
+        if not is_verified_pro:
+            req.premium = False
+
     if (req.mode == "ensemble" or req.mode == "technical_depth") and not req.premium:
         req.mode = "fast"
 

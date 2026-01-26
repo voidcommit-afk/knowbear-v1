@@ -7,7 +7,7 @@ import json
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from auth import verify_token
+from auth import verify_token, check_is_pro
 
 router = APIRouter(tags=["export"])
 
@@ -20,9 +20,18 @@ class ExportRequest(BaseModel):
 
 
 @router.post("/export")
-async def export_explanations(req: ExportRequest) -> StreamingResponse:
+async def export_explanations(req: ExportRequest, auth_data: dict = Depends(verify_token)) -> StreamingResponse:
     """Export explanations in requested format."""
+    # Verify pro status
+    user = auth_data["user"]
+    is_verified_pro = await check_is_pro(user.id)
+    
+    if not is_verified_pro:
+         # Even if req.premium is True, we reject if DB says otherwise
+        raise HTTPException(status_code=403, detail="Exporting is a premium feature. Please upgrade to use this functionality.")
+        
     if not req.premium:
+         # Fallback check if client honestly sends false
         raise HTTPException(status_code=403, detail="Exporting is a premium feature. Please upgrade to use this functionality.")
 
     if req.format == "txt":

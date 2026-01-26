@@ -1,6 +1,5 @@
 import asyncio
-from fastapi import HTTPException, Security, Depends
-
+from fastapi import HTTPException, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from config import get_settings
 from supabase import create_client, Client
@@ -11,7 +10,6 @@ security = HTTPBearer(auto_error=False)
 def get_supabase() -> Client:
     settings = get_settings()
     if not settings.supabase_url or not settings.supabase_anon_key:
-        # Fallback for build/test environments where keys might be missing
         print("Warning: Supabase credentials missing during init")
         return None
     return create_client(settings.supabase_url, settings.supabase_anon_key)
@@ -31,8 +29,6 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Security(secu
     supabase = get_supabase()
     
     if not supabase:
-         # Fail open or closed? For security, fail closed, but let's check if it's a dev env issue.
-         # Actually, without credentials, we can't verify.
          raise HTTPException(status_code=500, detail="Server configuration error: Auth unavailable")
 
     try:
@@ -41,7 +37,6 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Security(secu
         if not user_response or not user_response.user:
             raise HTTPException(status_code=401, detail="Invalid token")
 
-            
         return {"user": user_response.user, "token": token}
         
     except AuthApiError as e:
@@ -67,7 +62,6 @@ async def ensure_user_exists(user):
         return
     
     try:
-        # Upsert user data
         def _upsert():
             return supabase.table("users").upsert({
                 "id": user.id,
@@ -80,3 +74,18 @@ async def ensure_user_exists(user):
     except Exception as e:
         print(f"Failed to ensure user exists: {e}")
 
+async def check_is_pro(user_id: str) -> bool:
+    """Check if a user has pro status in the database."""
+    supabase = get_supabase_admin()
+    if not supabase:
+        return False
+        
+    try:
+        # Use simple select, admin client bypasses RLS so we can read any user
+        response = await asyncio.to_thread(
+            supabase.table("users").select("is_pro").eq("id", user_id).single().execute
+        )
+        return response.data.get("is_pro", False) if response.data else False
+    except Exception as e:
+        print(f"Failed to check pro status: {e}")
+        return False
