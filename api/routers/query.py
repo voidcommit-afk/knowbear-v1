@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from fastapi_limiter.depends import RateLimiter
-from utils import sanitize_topic, topic_cache_key
+from utils import sanitize_topic, topic_cache_key, FREE_LEVELS, PREMIUM_LEVELS
 from services.cache import cache_get, cache_set
 from services.ensemble import ensemble_generate
 from services.inference import generate_stream_explanation
@@ -13,10 +13,8 @@ from auth import verify_token_optional, get_supabase_admin, ensure_user_exists, 
 from logging_config import logger
 import json
 
-router = APIRouter(tags=["query"])
 
-FREE_LEVELS = ["eli5", "eli10", "eli12", "eli15", "meme"]
-PREMIUM_LEVELS = ["classic60", "gentle70", "warm80"]
+router = APIRouter(tags=["query"])
 
 
 class QueryRequest(BaseModel):

@@ -262,7 +262,7 @@ export default function AppPage() {
                                         </button>
                                     </div>
                                     <div className="hidden md:block">
-                                        <ExportDropdown topic={result.topic} explanations={result.explanations} />
+                                        <ExportDropdown topic={result.topic} explanations={result.explanations} mode={mode} />
                                     </div>
                                 </div>
 

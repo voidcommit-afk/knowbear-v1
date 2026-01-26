@@ -25,6 +25,7 @@ export interface ExportRequest {
     explanations: Record<string, string>
     format: 'txt' | 'json' | 'pdf' | 'md'
     premium?: boolean
+    mode?: Mode
 }
 
 export const FREE_LEVELS = ['eli5', 'eli10', 'eli12', 'eli15', 'meme'] as const

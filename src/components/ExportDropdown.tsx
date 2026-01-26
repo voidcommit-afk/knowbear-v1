@@ -2,12 +2,13 @@ import { useState, useRef, useEffect } from 'react'
 import { exportExplanations } from '../api'
 import { useUsageGate } from '../hooks/useUsageGate'
 import { Lock, Download, ChevronDown } from 'lucide-react'
-import type { ExportRequest } from '../types'
+import type { ExportRequest, Mode } from '../types'
 
 interface ExportDropdownProps {
     topic: string
     explanations: Record<string, string>
     compact?: boolean
+    mode: Mode
 }
 
 const EXPORT_LABELS: Record<string, string> = {
@@ -17,7 +18,7 @@ const EXPORT_LABELS: Record<string, string> = {
     md: 'Markdown (.md)'
 }
 
-export default function ExportDropdown({ topic, explanations, compact = false }: ExportDropdownProps) {
+export default function ExportDropdown({ topic, explanations, compact = false, mode }: ExportDropdownProps) {
     const [isOpen, setIsOpen] = useState(false)
     const [loading, setLoading] = useState(false)
     const dropdownRef = useRef<HTMLDivElement>(null)
@@ -47,7 +48,8 @@ export default function ExportDropdown({ topic, explanations, compact = false }:
                 topic,
                 explanations,
                 format,
-                premium: isPro
+                premium: isPro,
+                mode: mode
             }
             const blob = await exportExplanations(req)
             const url = URL.createObjectURL(blob)
