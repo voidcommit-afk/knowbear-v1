@@ -18,6 +18,15 @@ export interface QueryResponse {
     topic: string
     explanations: Record<string, string>
     cached: boolean
+    mode?: Mode
+}
+
+export interface HistoryItem {
+    id: string
+    topic: string
+    levels: string[]
+    mode: Mode
+    created_at: string
 }
 
 export interface ExportRequest {
@@ -26,6 +35,7 @@ export interface ExportRequest {
     format: 'txt' | 'json' | 'pdf' | 'md'
     premium?: boolean
     mode?: Mode
+    visuals?: Record<string, string>
 }
 
 export const FREE_LEVELS = ['eli5', 'eli10', 'eli12', 'eli15', 'meme'] as const

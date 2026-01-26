@@ -1,5 +1,6 @@
 import { RefreshCcw, Menu, ChevronLeft } from 'lucide-react'
 import ExportDropdown from './ExportDropdown'
+import type { Mode } from '../types'
 
 interface MobileBottomNavProps {
     onRegenerate: () => void
@@ -9,6 +10,7 @@ interface MobileBottomNavProps {
     hasResult: boolean
     isSidebarOpen: boolean
     onToggleSidebar: () => void
+    mode: Mode
 }
 
 export default function MobileBottomNav({
@@ -18,7 +20,8 @@ export default function MobileBottomNav({
     loading,
     hasResult,
     isSidebarOpen,
-    onToggleSidebar
+    onToggleSidebar,
+    mode
 }: MobileBottomNavProps) {
     if (!hasResult && !loading) return null
 
@@ -50,7 +53,7 @@ export default function MobileBottomNav({
 
                             <div className="h-8 w-px bg-white/10 mx-1" />
 
-                            <ExportDropdown topic={topic} explanations={explanations} compact />
+                            <ExportDropdown topic={topic} explanations={explanations} compact mode={mode} />
                         </div>
                     </div>
                 </div>

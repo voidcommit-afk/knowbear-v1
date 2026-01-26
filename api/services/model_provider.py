@@ -123,9 +123,16 @@ class ModelProvider:
         # Mode/Task based routing
         mode = kwargs.get("mode", "").lower()
         
-        # A. Coding / Technical
-        if task == "coding" or mode == "technical_depth" or "code" in task.lower():
-            target_model = "qwen-2.5-32b"
+        # A. Coding / Technical / Technical Depth
+        if mode == "technical_depth":
+            # Return Gemini directly for best quality/depth as requested
+             if self.gemini_configured:
+                 return await self._call_gemini_direct(prompt, **kwargs)
+             target_model = "llama-3.3-70b-versatile"
+             max_tokens = 3000
+             
+        elif task == "coding" or "code" in task.lower():
+            target_model = "llama-3.3-70b-versatile"
             max_tokens = 2048
             
         # C. Multilingual Support
@@ -133,8 +140,14 @@ class ModelProvider:
              target_model = "moonshotai/kimi-k2-instruct-0905"
              max_tokens = 2048
              
-        # D. Simple / Fast Modes (Explicit Cap)
-        elif mode in ["fast", "eli5", "eli10"]:
+        # D. Fast Mode (Llama models only as requested)
+        elif mode == "fast":
+            # Using llama-3.1-8b-instant for speed
+            target_model = "llama-3.1-8b-instant"
+            max_tokens = 400 
+            
+        # E. Simple / Old Modes (Explicit Cap)
+        elif mode in ["eli5", "eli10"]:
             target_model = "llama-3.1-8b-instant"
             max_tokens = 400 # ~300 words cap
             
@@ -143,7 +156,17 @@ class ModelProvider:
         if req_model:
             if req_model == "gemini":
                 return await self._call_gemini_direct(prompt, **kwargs)
-            elif req_model in ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "deepseek-r1-distill-llama-70b", "qwen-2.5-32b", "mixtral-8x7b-32768", "gemma2-9b-it"]:
+            elif req_model in [
+                "llama-3.1-8b-instant", 
+                "llama-3.3-70b-versatile", 
+                "llama-3.1-70b-versatile", 
+                "deepseek-r1-distill-llama-70b", 
+                "mixtral-8x7b-32768", 
+                "gemma2-9b-it",
+                "openai/gpt-oss-120b",
+                "openai/gpt-oss-20b",
+                "meta-llama/llama-guard-4-12b"
+            ]:
                 target_model = req_model
 
         # 5. EXECUTION
@@ -178,27 +201,36 @@ class ModelProvider:
 
     async def route_inference_stream(self, prompt: str, **kwargs):
         """Stream inference results for real-time UI."""
+        mode = kwargs.get("mode", "").lower()
+
+        # Handle Technical Depth streaming
+        if mode == "technical_depth" and self.gemini_configured:
+            # Revert to Gemini for technical depth as requested
+            try:
+                # Use a specific stream implementation if needed, but for now we follow the existing pattern
+                # If we want literal Gemini streaming, we'd need to add it to genai client
+                # However, the user also mentioned "gpt oss to reduce latency"
+                target_model = "openai/gpt-oss-120b"
+                max_tokens = 3000
+            except Exception:
+                target_model = "llama-3.3-70b-versatile"
+                max_tokens = 3000
+        elif mode == "fast":
+             # Fast mode uses llama models only
+             target_model = "llama-3.1-8b-instant"
+             max_tokens = 400
+        else:
+            target_model = "llama-3.1-8b-instant"
+            max_tokens = 1024
+            
+        if mode in ["eli5", "eli10"]:
+            max_tokens = 400
+
         if not self.groq_client:
             # Fallback for now just returns full text as a single chunk if streaming is unavailable
             res = await self._fallback_chain(prompt)
             yield res["content"]
             return
-
-        target_model = "llama-3.1-8b-instant"
-        max_tokens = 1024
-        mode = kwargs.get("mode", "").lower()
-        
-        if mode == "technical_depth":
-            target_model = "qwen-2.5-32b"
-            max_tokens = 2048
-        elif mode in ["fast", "eli5", "eli10"]:
-            target_model = "llama-3.1-8b-instant"
-            max_tokens = 400
-
-        is_pro = kwargs.get("is_pro", False) or kwargs.get("premium", False)
-        # Apply word cap for fast modes even if pro
-        if mode == "fast":
-            max_tokens = 400
 
         try:
             stream = await self.groq_client.chat.completions.create(

@@ -21,13 +21,16 @@ body {
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(2px 2px at 20px 30px, #fff 0%, rgba(255, 255, 255, 0.8) 40%, transparent 70%),
-    radial-gradient(1.5px 1.5px at 40px 70px, #fff 0%, rgba(255, 255, 255, 0.7) 40%, transparent 70%),
-    radial-gradient(2.5px 2.5px at 90px 40px, #fff 0%, rgba(255, 255, 255, 0.9) 40%, transparent 70%);
-  background-size: 200px 200px;
+    radial-gradient(1px 1px at 20px 30px, #fff 0%, rgba(255, 255, 255, 0.6) 40%, transparent 70%),
+    radial-gradient(1px 1px at 40px 70px, #fff 0%, rgba(255, 255, 255, 0.5) 40%, transparent 70%),
+    radial-gradient(1.5px 1.5px at 90px 40px, #fff 0%, rgba(255, 255, 255, 0.8) 40%, transparent 70%),
+    radial-gradient(1px 1px at 150px 150px, #fff 0%, rgba(255, 255, 255, 0.4) 40%, transparent 70%),
+    radial-gradient(1px 1px at 120px 10px, #fff 0%, rgba(255, 255, 255, 0.5) 40%, transparent 70%),
+    radial-gradient(1.5px 1.5px at 50px 150px, #fff 0%, rgba(255, 255, 255, 0.7) 40%, transparent 70%);
+  background-size: 150px 150px;
   animation: stars 100s linear infinite;
-  opacity: 1;
-  filter: brightness(1.2);
+  opacity: 0.8;
+  filter: brightness(1.5);
   z-index: 0;
 }
 
@@ -84,8 +87,13 @@ body {
 }
 
 @keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 .animate-shimmer {

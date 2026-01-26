@@ -15,11 +15,13 @@ class HistoryItem(BaseModel):
     id: str
     topic: str
     levels: List[str]
+    mode: str = "fast"
     created_at: datetime
 
 class HistoryCreate(BaseModel):
     topic: str
     levels: List[str]
+    mode: str = "fast"
 
 @router.get("/history", response_model=List[HistoryItem])
 async def get_history(auth_data: dict = Depends(verify_token)):
@@ -54,7 +56,8 @@ async def add_history_item(data: HistoryCreate, auth_data: dict = Depends(verify
             supabase.table("history").insert({
                 "user_id": user_id,
                 "topic": data.topic,
-                "levels": data.levels
+                "levels": data.levels,
+                "mode": data.mode
             }).execute
         )
 
@@ -86,3 +89,21 @@ async def delete_history_item(item_id: str, auth_data: dict = Depends(verify_tok
     except Exception as e:
         logger.error("delete_history_error", error=str(e), user_id=user_id, item_id=item_id)
         raise HTTPException(status_code=500, detail="Failed to delete history item")
+@router.delete("/history")
+async def clear_history(auth_data: dict = Depends(verify_token)):
+    user = auth_data["user"]
+    user_id = user.id
+    
+    supabase = get_supabase_admin()
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database connection error")
+        
+    try:
+        await asyncio.to_thread(
+            supabase.table("history").delete().eq("user_id", user_id).execute
+        )
+        return {"status": "cleared"}
+
+    except Exception as e:
+        logger.error("clear_history_error", error=str(e), user_id=user_id)
+        raise HTTPException(status_code=500, detail="Failed to clear history")

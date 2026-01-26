@@ -10,7 +10,10 @@ import { UpgradeModal } from '../components/UpgradeModal'
 import { RefreshCcw } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
 import MobileBottomNav from '../components/MobileBottomNav'
-import { SkeletonLoader, CardSkeleton } from '../components/SkeletonLoader'
+import { LoadingState } from '../components/LoadingState'
+
+// Global cache to persist across internal navigation (cleared on tab refresh)
+const responseCacheSession = new Map<string, any>()
 
 export default function AppPage() {
     // const [pinned, setPinned] = useState<PinnedTopic[]>([])
@@ -24,6 +27,8 @@ export default function AppPage() {
     const [historyRefresh, setHistoryRefresh] = useState(0)
     const [isSidebarOpen, setIsSidebarOpen] = useState(true)
     const [activeTopic, setActiveTopic] = useState('')
+    const [isFromCache, setIsFromCache] = useState(false)
+    const [loadingMeta, setLoadingMeta] = useState<{ mode: Mode, level: Level } | null>(null)
 
     const { checkAction, recordAction, showPremiumModal, setShowPremiumModal } = useUsageGate()
 
@@ -31,9 +36,10 @@ export default function AppPage() {
     const currentTopicRef = useRef<string | null>(null)
 
 
-    const fetchLevel = useCallback(async (topic: string, level: Level) => {
+    const fetchLevel = useCallback(async (topic: string, level: Level, overrideMode?: Mode) => {
         if (!topic) return
         setFetchingLevels(prev => new Set(prev).add(level))
+        const activeMode = overrideMode || mode
 
         let accumulatedContent = ''
 
@@ -42,7 +48,7 @@ export default function AppPage() {
                 {
                     topic,
                     levels: [level],
-                    mode,
+                    mode: activeMode,
                     premium: localStorage.getItem('knowbear_pro_status') === 'true'
                 },
                 (chunk) => {
@@ -69,7 +75,10 @@ export default function AppPage() {
                         next.delete(level)
                         return next
                     })
-                    setHistoryRefresh(prev => prev + 1)
+                    // Add delay to allow backend background task to finish saving history
+                    setTimeout(() => {
+                        setHistoryRefresh(prev => prev + 1)
+                    }, 1500)
                 },
                 (err) => {
                     console.error(`Failed to stream ${level}:`, err)
@@ -92,36 +101,83 @@ export default function AppPage() {
         }
     }, [mode])
 
-    const handleSearch = useCallback(async (topic: string, _forceRefresh: boolean = false) => {
-        // Usage gate check (handles Guest limits and Soft Gates like Deep Dive)
-        const { allowed: searchAllowed, downgraded } = checkAction('search', mode)
+    useEffect(() => {
+        if (result && !loading && fetchingLevels.size === 0) {
+            const cacheKey = `${result.topic}:${mode}`
+            responseCacheSession.set(cacheKey, { ...result, mode })
+        }
+    }, [result, loading, fetchingLevels, mode])
+
+    const handleSearch = useCallback(async (topic: string, _forceRefresh: boolean = false, requestedMode?: Mode, requestedLevel?: Level) => {
+        // Restore mode/level if provided (e.g. from history)
+        const activeMode = requestedMode || mode
+        const activeLevel = requestedLevel || (activeMode === 'technical_depth' ? 'eli5' : selectedLevel)
+
+        if (requestedMode) setMode(requestedMode)
+        if (requestedLevel) setSelectedLevel(requestedLevel)
+
+        // Usage gate check (uses activeMode)
+        const { allowed: searchAllowed, downgraded } = checkAction('search', activeMode)
 
         if (!searchAllowed) {
             return
         }
 
-        // Gating for Premium Modes (Hard Gate execution check)
-        if (mode === 'ensemble' || mode === 'technical_depth') {
+        // Gating for Premium Modes
+        if (activeMode === 'ensemble' || activeMode === 'technical_depth') {
             const { allowed } = checkAction('premium_mode')
             if (!allowed) return
         }
 
-        // Determine actual mode to use (Downgrade if needed)
-        const effectiveMode = downgraded ? 'fast' : mode
+        // Determine actual mode to use
+        const effectiveMode = downgraded ? 'fast' : activeMode
+        if (downgraded) setMode('fast')
+
+        // Check Cache first
+        if (!_forceRefresh) {
+            const cacheKey = `${topic}:${effectiveMode}`
+            const cachedResponse = responseCacheSession.get(cacheKey)
+            if (cachedResponse) {
+                console.log('Cache hit for', topic)
+                setResult(cachedResponse)
+                setActiveTopic(topic)
+                setIsFromCache(true)
+
+                // If the cached response has a different mode, sync it
+                if (cachedResponse.mode) setMode(cachedResponse.mode)
+
+                // Try to find a level in the cached explanations if the current activeLevel isn't there
+                if (!cachedResponse.explanations[activeLevel]) {
+                    const availableLevel = Object.keys(cachedResponse.explanations)[0] as Level
+                    if (availableLevel) setSelectedLevel(availableLevel)
+                }
+
+                // Clear any previous error/loading
+                setError(null)
+                setLoading(false)
+                setFetchingLevels(new Set())
+                // Hide cache indicator after a few seconds
+                setTimeout(() => setIsFromCache(false), 3000)
+                return
+            }
+        }
 
         recordAction('search', effectiveMode)
 
         setActiveTopic(topic)
+        setLoadingMeta({ mode: effectiveMode, level: activeLevel })
         setLoading(true)
+        setIsFromCache(false)
         setError(null)
         setResult(null)
         setFetchingLevels(new Set())
         setFailedLevels(new Set())
         currentTopicRef.current = topic
 
-        // Use fetchLevel which now handles streaming
-        await fetchLevel(topic, selectedLevel)
+        // Use fetchLevel which now handles streaming and mode override
+        await fetchLevel(topic, activeLevel, effectiveMode)
         setLoading(false)
+        setLoadingMeta(null)
     }, [mode, selectedLevel, fetchLevel, checkAction, recordAction])
 
     const handleGoHome = useCallback(() => {
@@ -154,7 +210,7 @@ export default function AppPage() {
     return (
         <div className="flex min-h-screen bg-black overflow-hidden relative">
             <Sidebar
-                onSelectTopic={(topic) => handleSearch(topic)}
+                onSelectTopic={(topic: string, mode?: Mode, level?: Level) => { handleSearch(topic, false, mode, level) }}
                 refreshTrigger={historyRefresh}
                 isOpen={isSidebarOpen}
                 onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -192,13 +248,13 @@ export default function AppPage() {
                             value={activeTopic}
                         />
 
-                        {!result && loading && (
-                            <div className="space-y-8 animate-pulse">
-                                <div className="h-10 bg-dark-700/50 rounded-full w-48 mx-auto mb-8"></div>
-                                <CardSkeleton />
-                                <div className="space-y-4">
-                                    <SkeletonLoader />
-                                </div>
+                        {(!result || (fetchingLevels.has(selectedLevel) && !result.explanations[selectedLevel])) && loading && (
+                            <div className="bg-dark-800/50 backdrop-blur-sm border border-dark-700 rounded-2xl shadow-2xl overflow-hidden">
+                                <LoadingState
+                                    mode={loadingMeta?.mode || mode}
+                                    level={loadingMeta?.level || selectedLevel}
+                                    topic={activeTopic}
+                                />
                             </div>
                         )}
 
@@ -236,29 +292,40 @@ export default function AppPage() {
 
 
                         {error && (
-                            <div className="bg-red-900/30 border border-red-500 text-red-300 p-4 rounded-lg">
-                                {error}
+                            <div className="bg-red-900/20 border border-red-500/50 text-red-200 p-8 rounded-2xl text-center space-y-4 animate-in zoom-in-95 duration-300">
+                                <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <span className="text-2xl">⚠️</span>
+                                </div>
+                                <h3 className="text-lg font-bold">Oops, something went wrong</h3>
+                                <p className="text-sm text-red-200/70 max-w-md mx-auto">{error}</p>
+                                <button
+                                    onClick={() => {
+                                        setLoadingMeta(null); // Reset meta before retry
+                                        handleSearch(activeTopic, true);
+                                    }}
+                                    className="px-6 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-xl text-sm font-medium transition-all"
+                                >
+                                    Try again
+                                </button>
                             </div>
                         )}
 
                         {/* Result Section */}
-                        {result && !loading && (
+                        {result && (
                             <section className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <div className="border-b border-dark-700 pb-4">
-                                    <h2 className="text-2xl md:text-3xl font-bold text-white text-center md:text-left tracking-tight">{result.topic}</h2>
-                                </div>
-
                                 <div className="flex flex-col md:flex-row md:justify-between items-center gap-4">
                                     <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-                                        <LevelDropdown selected={selectedLevel} onChange={setSelectedLevel} />
+                                        {mode !== 'technical_depth' && (
+                                            <LevelDropdown selected={selectedLevel} onChange={setSelectedLevel} />
+                                        )}
                                         <button
                                             onClick={() => handleSearch(result.topic, true)}
                                             disabled={loading}
-                                            className="hidden md:flex items-center gap-2 px-4 py-3 bg-dark-700 hover:bg-dark-600 border border-dark-600 rounded-lg text-white transition-all disabled:opacity-50 w-full md:w-auto justify-center"
+                                            className={`${mode === 'technical_depth' ? 'flex' : 'hidden md:flex'} items-center gap-2 px-4 py-3 bg-dark-700 hover:bg-dark-600 border border-dark-600 rounded-lg text-white transition-all disabled:opacity-50 w-full md:w-auto justify-center`}
                                             title="Regenerate"
                                         >
                                             <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                                            <span className="md:hidden lg:inline text-sm font-medium">Regenerate</span>
+                                            <span className={`${mode === 'technical_depth' ? 'inline' : 'md:hidden lg:inline'} text-sm font-medium`}>Regenerate</span>
                                         </button>
                                     </div>
                                     <div className="hidden md:block">
@@ -266,18 +333,37 @@ export default function AppPage() {
                                     </div>
                                 </div>
 
-                                {fetchingLevels.has(selectedLevel) ? (
-                                    <div className="bg-dark-800/50 backdrop-blur-sm rounded-xl p-8 border border-dark-700 shadow-xl">
-                                        <SkeletonLoader />
+                                <div id="export-content" className="space-y-6">
+                                    <div className="border-b border-dark-700 pb-4 flex flex-col md:flex-row items-center md:justify-between gap-2">
+                                        <h2 className="text-2xl md:text-3xl font-bold text-white text-center md:text-left tracking-tight">{result.topic}</h2>
+                                        {isFromCache && (
+                                            <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(6,182,212,0.1)] animate-pulse uppercase tracking-widest">
+                                                Loaded from session cache
+                                            </span>
+                                        )}
                                     </div>
-                                ) : result.explanations[selectedLevel] ? (
-                                    <ExplanationCard level={selectedLevel} content={result.explanations[selectedLevel]} />
-                                ) : (
-                                    <div className="bg-dark-800/50 backdrop-blur-sm rounded-xl p-16 text-center border border-dark-700 shadow-xl">
-                                        <p className="text-gray-500 italic">No explanation available for this level.</p>
-                                    </div>
-                                )}
 
+                                    {fetchingLevels.has(selectedLevel) && !result.explanations[selectedLevel] ? (
+                                        <div className="bg-dark-800/50 backdrop-blur-sm rounded-xl border border-dark-700 shadow-xl overflow-hidden">
+                                            <LoadingState
+                                                mode={loadingMeta?.mode || mode}
+                                                level={loadingMeta?.level || selectedLevel}
+                                                topic={result.topic}
+                                            />
+                                        </div>
+                                    ) : result.explanations[selectedLevel] ? (
+                                        <ExplanationCard
+                                            level={selectedLevel}
+                                            content={result.explanations[selectedLevel]}
+                                            mode={mode}
+                                            streaming={fetchingLevels.has(selectedLevel)}
+                                        />
+                                    ) : (
+                                        <div className="bg-dark-800/50 backdrop-blur-sm rounded-xl p-16 text-center border border-dark-700 shadow-xl">
+                                            <p className="text-gray-500 italic">No explanation available for this level.</p>
+                                        </div>
+                                    )}
+                                </div>
                             </section>
                         )}
                     </main>
@@ -296,9 +382,10 @@ export default function AppPage() {
                 hasResult={!!result}
                 isSidebarOpen={isSidebarOpen}
                 onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+                mode={mode}
             />
 
             <UpgradeModal isOpen={showPremiumModal} onClose={() => setShowPremiumModal(false)} />
-        </div>
+        </div >
     )
 }

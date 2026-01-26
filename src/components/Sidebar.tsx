@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { getHistory, deleteHistoryItem } from '../api'
+import { getHistory, deleteHistoryItem, clearHistory } from '../api'
 import {
     Clock,
     LogOut,
@@ -10,12 +10,14 @@ import {
     Trash2,
     Crown,
     LogIn,
-    MessageSquare
+    MessageSquare,
+    AlertTriangle
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import type { Mode, Level } from '../types'
 
 interface SidebarProps {
-    onSelectTopic: (topic: string) => void
+    onSelectTopic: (topic: string, mode?: Mode, level?: Level) => void
     refreshTrigger?: number
     isOpen: boolean
     onToggle: () => void
@@ -28,6 +30,8 @@ export default function Sidebar({ onSelectTopic, refreshTrigger, isOpen, onToggl
         return cached ? JSON.parse(cached) : []
     })
     const [isLoading, setIsLoading] = useState(false)
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [isDeletingAll, setIsDeletingAll] = useState(false)
     const { user, profile, signOut, signInWithGoogle } = useAuth()
     const navigate = useNavigate()
 
@@ -61,6 +65,27 @@ export default function Sidebar({ onSelectTopic, refreshTrigger, isOpen, onToggl
             setHistory(prev => prev.filter(item => item.id !== id))
         } catch (err) {
             console.error('Failed to delete history item:', err)
+        }
+    }
+
+    const handleDeleteAll = async () => {
+        setIsDeletingAll(true)
+        // Optimistic update
+        const previousHistory = [...history]
+        setHistory([])
+        localStorage.removeItem('kb_history_cache')
+        setShowDeleteModal(false)
+
+        try {
+            await clearHistory()
+        } catch (err) {
+            console.error('Failed to clear history:', err)
+            // Rollback on error
+            setHistory(previousHistory)
+            localStorage.setItem('kb_history_cache', JSON.stringify(previousHistory))
+            alert('Failed to clear history. Please try again.')
+        } finally {
+            setIsDeletingAll(false)
         }
     }
 
@@ -160,27 +185,44 @@ export default function Sidebar({ onSelectTopic, refreshTrigger, isOpen, onToggl
                                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest flex items-center gap-2">
                                     <Clock size={12} /> History
                                 </h3>
-                                {history.length > 0 && (
-                                    <span className="text-[10px] bg-dark-700 text-gray-400 px-1.5 py-0.5 rounded-full">
-                                        {history.length}
-                                    </span>
-                                )}
+                                <div className="flex items-center gap-2">
+                                    {history.length > 0 && (
+                                        <>
+                                            <button
+                                                onClick={() => setShowDeleteModal(true)}
+                                                disabled={isDeletingAll}
+                                                className="text-[10px] text-gray-500 hover:text-red-400 transition-colors uppercase tracking-tighter font-bold disabled:opacity-50"
+                                            >
+                                                {isDeletingAll ? 'Clearing...' : 'Clear All'}
+                                            </button>
+                                            <span className="text-[10px] bg-dark-700 text-gray-400 px-1.5 py-0.5 rounded-full">
+                                                {history.length}
+                                            </span>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                             {history.length > 0 ? (
                                 <div className="space-y-0.5">
                                     {history.map(item => (
                                         <div
                                             key={item.id}
-                                            onClick={() => onSelectTopic(item.topic)}
+                                            onClick={() => onSelectTopic(item.topic, item.mode, item.levels?.[0] as Level)}
                                             className="group flex items-center justify-between p-2.5 rounded-lg hover:bg-dark-800 cursor-pointer transition-all border border-transparent hover:border-dark-700"
                                         >
-                                            <div className="flex items-center gap-2.5 min-w-0">
+                                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
                                                 <MessageSquare size={14} className="text-gray-500 shrink-0" />
-                                                <span className="text-gray-300 text-sm truncate">{item.topic}</span>
+                                                <span className="text-gray-300 text-sm truncate flex-1">{item.topic}</span>
+                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider shrink-0 whitespace-nowrap ${item.mode === 'technical_depth' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+                                                    item.mode === 'ensemble' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' :
+                                                        'bg-gray-500/10 text-gray-400 border border-gray-500/20'
+                                                    }`}>
+                                                    {item.mode === 'technical_depth' ? 'Tech' : item.mode === 'ensemble' ? 'Ens' : 'Fast'}
+                                                </span>
                                             </div>
                                             <button
                                                 onClick={(e) => handleDelete(e, item.id)}
-                                                className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-red-400 transition-all rounded-md hover:bg-red-400/10"
+                                                className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-red-400 transition-all rounded-md hover:bg-red-400/10 ml-2"
                                                 title="Delete"
                                             >
                                                 <Trash2 size={13} />
@@ -211,11 +253,43 @@ export default function Sidebar({ onSelectTopic, refreshTrigger, isOpen, onToggl
                 {isOpen && (
                     <div className="p-4 border-t border-dark-700">
                         <div className="flex items-center justify-center">
-                            <span className="text-[10px] text-gray-600 font-mono">v1.2.0-beta</span>
+                            <span className="text-[10px] text-gray-600 font-mono">v2.0.0-beta</span>
                         </div>
                     </div>
                 )}
             </aside>
+
+            {/* Custom Confirmation Modal */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowDeleteModal(false)}></div>
+                    <div className="relative bg-dark-800 border border-dark-600 rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center gap-4 mb-4">
+                            <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center shrink-0">
+                                <AlertTriangle className="text-red-500 w-6 h-6" />
+                            </div>
+                            <div>
+                                <h4 className="text-white font-bold text-lg leading-tight">Clear history?</h4>
+                                <p className="text-gray-400 text-sm mt-1">This will permanently delete all your previous searches.</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-3 justify-end mt-6">
+                            <button
+                                onClick={() => setShowDeleteModal(false)}
+                                className="px-4 py-2 text-gray-400 hover:text-white text-sm font-medium transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteAll}
+                                className="px-5 py-2 bg-red-600 hover:bg-red-500 text-white text-sm font-bold rounded-xl transition-all active:scale-95 shadow-lg shadow-red-900/20"
+                            >
+                                Yes, Clear All
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     )
 }

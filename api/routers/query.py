@@ -84,7 +84,7 @@ async def query_topic(
     if not uncached and not req.bypass_cache:
         if auth_data:
             logger.info("query_cached_saving_history", user_id=auth_data["user"].id, topic=topic)
-            asyncio.create_task(save_to_history(auth_data["user"], topic, levels))
+            asyncio.create_task(save_to_history(auth_data["user"], topic, levels, req.mode))
         else:
             logger.info("query_cached_no_auth", topic=topic)
         return QueryResponse(topic=topic, explanations=explanations, cached=True)
@@ -106,7 +106,7 @@ async def query_topic(
 
     if auth_data:
         logger.info("query_success_saving_history", user_id=auth_data["user"].id, topic=topic)
-        asyncio.create_task(save_to_history(auth_data["user"], topic, levels))
+        asyncio.create_task(save_to_history(auth_data["user"], topic, levels, req.mode))
     else:
         logger.info("query_success_no_auth", topic=topic)
 
@@ -138,8 +138,7 @@ async def query_topic_stream(
     except ValueError as e:
         raise HTTPException(400, str(e))
 
-    # For streaming, we usually handle one level at a time in the simple implementation
-    # But let's assume the frontend sends the specific level it wants streamed if not all
+    # For streaming, we usually handle one level at a time
     level = req.levels[0] if req.levels else "eli5"
 
     async def event_generator():
@@ -148,6 +147,27 @@ async def query_topic_stream(
             # Yield metadata first
             yield f"data: {json.dumps({'topic': topic, 'level': level})}\n\n"
             
+            # Check cache first for instant delivery
+            if not req.bypass_cache:
+                cache_key = topic_cache_key(topic, level)
+                cached = await cache_get(cache_key)
+                if cached and cached.get("text"):
+                    logger.info("query_stream_cache_hit", topic=topic, level=level)
+                    content = cached["text"]
+                    # Yield in small chunks to simulate streaming for UI consistency if needed, 
+                    # or just one big chunk. Let's do a few chunks for smooth UI.
+                    chunk_size = 500
+                    for i in range(0, len(content), chunk_size):
+                        chunk = content[i:i+chunk_size]
+                        yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+                        await asyncio.sleep(0.01) # Tiny sleep for UI smoothness
+                    
+                    yield "data: [DONE]\n\n"
+                    if auth_data:
+                        asyncio.create_task(save_to_history(auth_data["user"], topic, [level], req.mode))
+                    return
+
+            # If not cached or bypass requested, stream from model
             async for chunk in generate_stream_explanation(
                 topic, 
                 level, 
@@ -158,12 +178,17 @@ async def query_topic_stream(
                 full_content += chunk
                 yield f"data: {json.dumps({'chunk': chunk})}\n\n"
             
-            # Final event with full data for caching or history saving
+            # Final event
             yield "data: [DONE]\n\n"
+            
+            # Cache the result for future "revisits"
+            if full_content.strip():
+                cache_key = topic_cache_key(topic, level)
+                await cache_set(cache_key, {"text": full_content})
             
             # Record in history if authenticated
             if auth_data:
-                asyncio.create_task(save_to_history(auth_data["user"], topic, [level]))
+                asyncio.create_task(save_to_history(auth_data["user"], topic, [level], req.mode))
                 
         except Exception as e:
             logger.error("streaming_failed", error=str(e), topic=topic)
@@ -172,7 +197,7 @@ async def query_topic_stream(
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
-async def save_to_history(user, topic: str, levels: list[str]):
+async def save_to_history(user, topic: str, levels: list[str], mode: str):
     """Background task to save query to history. Deduplicates by topic per user."""
     logger.info("save_to_history_task_start", user_id=user.id, topic=topic)
     try:
@@ -196,6 +221,7 @@ async def save_to_history(user, topic: str, levels: list[str]):
             await asyncio.to_thread(
                 supabase.table("history").update({
                     "levels": new_levels,
+                    "mode": mode,
                     "created_at": "now()" # Move to top
                 }).eq("id", item_id).execute
             )
@@ -206,7 +232,8 @@ async def save_to_history(user, topic: str, levels: list[str]):
                 supabase.table("history").insert({
                     "user_id": user.id,
                     "topic": topic,
-                    "levels": levels
+                    "levels": levels,
+                    "mode": mode
                 }).execute
             )
             logger.info("save_to_history_task_success", user_id=user.id, topic=topic, data=bool(response.data))

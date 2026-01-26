@@ -1,10 +1,12 @@
 """Groq inference service."""
 
+import asyncio
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from config import get_settings
-from prompts import PROMPTS
+from prompts import PROMPTS, TECHNICAL_DEPTH_PROMPT
 from logging_config import logger
+from services.search import search_service
 
 
 
@@ -47,25 +49,35 @@ async def call_model(model: str, prompt: str, max_tokens: int = 1024, **kwargs) 
 async def generate_explanation(topic: str, level: str, model: str, **kwargs) -> str:
     """Generate explanation for topic at given level."""
     mode = kwargs.get("mode", "ensemble")
+    
+    if mode == "technical_depth":
+        search_task = search_service.get_search_context(topic)
+        image_task = search_service.get_images(topic)
+        quote_task = search_service.get_quote()
+        
+        context, images, quote = await asyncio.gather(search_task, image_task, quote_task)
+        
+        prompt = TECHNICAL_DEPTH_PROMPT.format(
+            search_context=context,
+            quote_text=quote if quote else "No specific quote found.",
+            topic=topic
+        )
+        
+        response = await call_model(model, prompt, **kwargs)
+        
+        # Append images if available
+        if images:
+             response += "\n\n### Visual References\n"
+             for img in images:
+                 response += f"![{img.get('title', 'Image')}]({img['url']})\n"
+        
+        return response
+
     template = PROMPTS.get(level)
     if not template:
         raise ValueError(f"Unknown level: {level}")
         
     prompt = template.format(topic=topic)
-    
-    # Task 3 Enhancement: Augment if Technical Depth Mode is active
-    if mode == "technical_depth":
-        augmentation = """
-        
-        AUGMENTED RESEARCH REQUIREMENTS (Technical Depth Mode):
-        1. Academic Standards: Use advanced terminology, define equations, and use professional language.
-        2. Web Quoting: Include specific references to authors, papers, or industry data (e.g. "According to the 2024 State of AI Report...").
-        3. Visuals: Include at least one Mermaid.js diagram using ```mermaid code blocks.
-        4. Explanatory Images: Include detailed [Image Placeholder: Description of a relevant scientific visualization] where it adds value.
-        5. Performance: Answer must meet academic/research standards in accuracy and synthesis.
-        6. Formatting: Use Markdown headers, bolding, and lists for readability.
-        """
-        prompt += augmentation
         
     return await call_model(model, prompt, **kwargs)
 
@@ -74,25 +86,35 @@ async def generate_stream_explanation(topic: str, level: str, **kwargs):
     """Stream explanation for topic at given level."""
     from services.model_provider import ModelProvider
     mode = kwargs.get("mode", "ensemble")
-    template = PROMPTS.get(level)
-    if not template:
-        raise ValueError(f"Unknown level: {level}")
-        
-    prompt = template.format(topic=topic)
     
+    prompt = ""
+    images = []
+
     if mode == "technical_depth":
-        augmentation = """
+        search_task = search_service.get_search_context(topic)
+        image_task = search_service.get_images(topic)
+        quote_task = search_service.get_quote()
         
-        AUGMENTED RESEARCH REQUIREMENTS (Technical Depth Mode):
-        1. Academic Standards: Use advanced terminology, define equations, and use professional language.
-        2. Web Quoting: Include specific references to authors, papers, or industry data (e.g. "According to the 2024 State of AI Report...").
-        3. Visuals: Include at least one Mermaid.js diagram using ```mermaid code blocks.
-        4. Explanatory Images: Include detailed [Image Placeholder: Description of a relevant scientific visualization] where it adds value.
-        5. Performance: Answer must meet academic/research standards in accuracy and synthesis.
-        6. Formatting: Use Markdown headers, bolding, and lists for readability.
-        """
-        prompt += augmentation
+        context, images_result, quote = await asyncio.gather(search_task, image_task, quote_task)
+        images = images_result
+        
+        prompt = TECHNICAL_DEPTH_PROMPT.format(
+            search_context=context,
+            quote_text=quote if quote else "No specific quote found.",
+            topic=topic
+        )
+    else:
+        template = PROMPTS.get(level)
+        if not template:
+            raise ValueError(f"Unknown level: {level}")
+        prompt = template.format(topic=topic)
     
     provider = ModelProvider.get_instance()
     async for chunk in provider.route_inference_stream(prompt, **kwargs):
         yield chunk
+
+    # Append images at the end of the stream for technical depth
+    if mode == "technical_depth" and images:
+        yield "\n\n### Visual References\n"
+        for img in images:
+            yield f"![{img.get('title', 'Image')}]({img['url']})\n"

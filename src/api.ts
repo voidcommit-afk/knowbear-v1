@@ -129,3 +129,7 @@ export async function getHistory(): Promise<any[]> {
 export async function deleteHistoryItem(id: string): Promise<void> {
     return fetchAPI(`/api/history/${id}`, { method: 'DELETE' })
 }
+
+export async function clearHistory(): Promise<void> {
+    return fetchAPI('/api/history', { method: 'DELETE' })
+}

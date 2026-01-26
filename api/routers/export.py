@@ -1,16 +1,23 @@
-"""Export endpoint for downloading explanations."""
-
 import asyncio
 import io
 import json
+import base64
+import re
+import markdown
+import structlog
+from typing import Optional, Dict
 
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+# 2026-01: Disabled PDF export to reduce serverless package size + fix output quality issues
+# from fpdf import FPDF, HTMLMixin
+
 from auth import verify_token, check_is_pro
 from utils import FREE_LEVELS, PREMIUM_LEVELS
 from services.ensemble import ensemble_generate
 
+logger = structlog.get_logger(__name__)
 router = APIRouter(tags=["export"])
 
 
@@ -20,7 +27,38 @@ class ExportRequest(BaseModel):
     format: str = Field(default="txt", pattern="^(txt|json|pdf|md)$")
     premium: bool = False
     mode: str = "fast"
+    visuals: Optional[dict[str, str]] = None
 
+
+# 2026-01: PDF Export components temporarily disabled
+"""
+class StyledPDF(FPDF, HTMLMixin):
+    def __init__(self, topic_name: str, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.topic_name = topic_name
+
+    def header(self):
+        # Fill background for every page
+        self.set_fill_color(10, 10, 10)
+        self.rect(0, 0, 210, 297, "F")
+        
+        if self.page_no() > 1:
+            self.set_font("helvetica", "I", 8)
+            self.set_text_color(150, 150, 150)
+            self.cell(0, 10, f"KnowBear Technical Depth: {self.topic_name}", align="R")
+            self.ln(10)
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font("helvetica", "I", 8)
+        self.set_text_color(150, 150, 150)
+        self.cell(0, 10, f"Page {self.page_no()} / {{nb}}", align="C")
+
+
+def safe_latin1(text: str) -> str:
+    # Ensure text is safe for fpdf2's default helvetica font.
+    return text.encode('latin-1', 'replace').decode('latin-1')
+"""
 
 @router.post("/export")
 async def export_explanations(req: ExportRequest, auth_data: dict = Depends(verify_token)) -> StreamingResponse:
@@ -30,31 +68,30 @@ async def export_explanations(req: ExportRequest, auth_data: dict = Depends(veri
     is_verified_pro = await check_is_pro(user.id)
     
     if not is_verified_pro:
-         # Even if req.premium is True, we reject if DB says otherwise
         raise HTTPException(status_code=403, detail="Exporting is a premium feature. Please upgrade to use this functionality.")
         
     if not req.premium:
-         # Fallback check if client honestly sends false
         raise HTTPException(status_code=403, detail="Exporting is a premium feature. Please upgrade to use this functionality.")
 
-    # Identify missing levels we should include
-    # We want to provide a complete report.
-    target_levels = set(FREE_LEVELS)
-    if is_verified_pro: # Only add premium levels if user is actually pro
-        target_levels.update(PREMIUM_LEVELS)
+    # Identify levels to include based on mode
+    is_technical = req.mode == "technical_depth"
+    
+    if is_technical:
+        target_levels = {"technical_depth"}
+        if "technical_depth" not in req.explanations:
+            if req.explanations:
+                target_levels = set(req.explanations.keys())
+            else:
+                target_levels = {"technical_depth"}
+    else:
+        target_levels = set(FREE_LEVELS)
+        if is_verified_pro:
+            target_levels.update(PREMIUM_LEVELS)
     
     current_levels = set(req.explanations.keys())
     missing_levels = list(target_levels - current_levels)
 
-    # If we have missing levels, generate them on the fly
     if missing_levels:
-        # We need to trust the topic is valid or sanitize it again?
-        # The frontend passed it. 'ensemble_generate' will handle it.
-        # But wait, ensemble_generate expects 'is_pro' logic.
-        
-        # We use the mode requested by the user, or default to fast if not provided (though we set default="fast")
-        # Gating: if mode is premium but user not pro, downgrade? User is pro here (checked above).
-        
         tasks = {lvl: ensemble_generate(req.topic, lvl, is_verified_pro, req.mode) for lvl in missing_levels}
         results = await asyncio.gather(*tasks.values(), return_exceptions=True)
         
@@ -64,87 +101,70 @@ async def export_explanations(req: ExportRequest, auth_data: dict = Depends(veri
             else:
                 req.explanations[lvl] = f"Error generating content: {str(result)}"
     
-    # Sort explanations to be in a nice order: Free first then Premium
     ordered_explanations = {}
-    for lvl in FREE_LEVELS:
-        if lvl in req.explanations:
-            ordered_explanations[lvl] = req.explanations[lvl]
-            
-    if is_verified_pro:
-        for lvl in PREMIUM_LEVELS:
-             if lvl in req.explanations:
+    if is_technical:
+        if "technical_depth" in req.explanations:
+            ordered_explanations["technical_depth"] = req.explanations["technical_depth"]
+        else:
+            ordered_explanations = req.explanations
+    else:
+        for lvl in FREE_LEVELS:
+            if lvl in req.explanations:
                 ordered_explanations[lvl] = req.explanations[lvl]
+        if is_verified_pro:
+            for lvl in PREMIUM_LEVELS:
+                 if lvl in req.explanations:
+                    ordered_explanations[lvl] = req.explanations[lvl]
                 
-    # Use ordered dictionary for output
     req.explanations = ordered_explanations
+
+    slug = req.topic.lower().replace(" ", "-")[:30]
+    filename_base = f"{slug}-technical-depth" if is_technical else f"knowbear-{slug}"
 
     if req.format == "txt":
         content = f"# {req.topic}\n\n"
+        if len(req.explanations) > 1:
+            content += "---\n\n"
         for level, text in req.explanations.items():
-            content += f"## {level.upper()}\n{text}\n\n"
+            if not is_technical and len(req.explanations) > 1:
+                lvl_name = "TECHNICAL DEPTH" if level == "technical_depth" else level.replace('eli', 'ELI-').upper()
+                content += f"## {lvl_name}\n\n"
+            content += f"{text.strip()}\n\n"
+            if len(req.explanations) > 1:
+                content += "---\n\n"
         return StreamingResponse(
             io.BytesIO(content.encode()),
             media_type="text/plain",
-            headers={"Content-Disposition": f"attachment; filename={req.topic[:20]}.txt"},
+            headers={"Content-Disposition": f"attachment; filename={filename_base}.txt"},
         )
     elif req.format == "md":
         content = f"# {req.topic}\n\n"
+        if len(req.explanations) > 1:
+            content += "---\n\n"
         for level, text in req.explanations.items():
-            content += f"## {level.upper()}\n\n{text}\n\n"
+            if not is_technical and len(req.explanations) > 1:
+                lvl_name = level.replace('eli', 'ELI-').upper()
+                content += f"## {lvl_name}\n\n"
+            content += f"{text.strip()}\n\n"
+            if len(req.explanations) > 1:
+                content += "---\n\n"
         return StreamingResponse(
             io.BytesIO(content.encode()),
             media_type="text/markdown",
-            headers={"Content-Disposition": f"attachment; filename={req.topic[:20]}.md"},
+            headers={"Content-Disposition": f"attachment; filename={filename_base}.md"},
         )
-    elif req.format == "json":
-        data = {"topic": req.topic, "explanations": req.explanations}
-        return StreamingResponse(
-            io.BytesIO(json.dumps(data, indent=2).encode()),
-            media_type="application/json",
-            headers={"Content-Disposition": f"attachment; filename={req.topic[:20]}.json"},
-        )
-    elif req.format == "pdf":
-        try:
-            from fpdf import FPDF
+    # 2026-01: JSON and PDF temporarily disabled
+    # elif req.format == "json":
+    #     data = {"topic": req.topic, "explanations": req.explanations}
+    #     return StreamingResponse(
+    #         io.BytesIO(json.dumps(data, indent=2).encode()),
+    #         media_type="application/json",
+    #         headers={"Content-Disposition": f"attachment; filename={filename_base}.json"},
+    #     )
+    # elif req.format == "pdf":
+    #     try:
+    #         ... PDF logic ...
+    #     except Exception as e:
+    #         ...
             
-            class PDF(FPDF):
-                def header(self):
-                    self.set_font("helvetica", "B", 15)
-                    self.cell(0, 10, req.topic, align="C")
-                    self.ln(20)
-
-            pdf = PDF()
-            pdf.add_page()
-            pdf.set_auto_page_break(auto=True, margin=15)
-            
-            # Add content
-            for level, text in req.explanations.items():
-                pdf.set_font("helvetica", "B", 12)
-                pdf.cell(0, 10, level.replace("eli", "ELI-").upper(), ln=True)
-                pdf.ln(2)
-                
-                pdf.set_font("helvetica", "", 11)
-                # Handle unicode characters that might break latin-1
-                safe_text = text.encode('latin-1', 'replace').decode('latin-1')
-                pdf.multi_cell(0, 6, safe_text)
-                pdf.ln(10)
-
-            pdf_bytes = await asyncio.to_thread(pdf.output)
-            if isinstance(pdf_bytes, (bytes, bytearray)):
-                buf = io.BytesIO(pdf_bytes)
-            else:
-                buf = io.BytesIO()
-                await asyncio.to_thread(pdf.output, buf)
-                buf.seek(0)
-
-
-            return StreamingResponse(
-                buf,
-                media_type="application/pdf",
-                headers={"Content-Disposition": f"attachment; filename={req.topic[:20]}.pdf"},
-            )
-        except Exception as e:
-            print(f"PDF Error: {e}")
-            raise HTTPException(500, "PDF generation failed")
-            
-    raise HTTPException(400, "Invalid format")
+    raise HTTPException(400, "Requested format is currently disabled or invalid")
