@@ -56,7 +56,8 @@ export async function queryTopicStream(
     req: QueryRequest,
     onChunk: (chunk: string) => void,
     onDone: (data: any) => void,
-    onError: (err: any) => void
+    onError: (err: any) => void,
+    signal?: AbortSignal
 ) {
     const { data: { session } } = await supabase.auth.getSession()
     const headers: HeadersInit = {
@@ -71,6 +72,7 @@ export async function queryTopicStream(
             method: 'POST',
             headers,
             body: JSON.stringify(req),
+            signal,
         })
 
         if (!response.ok) throw new Error(`API error: ${response.status}`)

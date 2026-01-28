@@ -11,29 +11,31 @@ import { RefreshCcw } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
 import MobileBottomNav from '../components/MobileBottomNav'
 import { LoadingState } from '../components/LoadingState'
+import { useMode } from '../context/ModeContext'
+import { motion, AnimatePresence } from 'framer-motion'
 
 // Global cache to persist across internal navigation (cleared on tab refresh)
 const responseCacheSession = new Map<string, any>()
 
 export default function AppPage() {
-    // const [pinned, setPinned] = useState<PinnedTopic[]>([])
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState<QueryResponse | null>(null)
     const [selectedLevel, setSelectedLevel] = useState<Level>('eli5')
     const [error, setError] = useState<string | null>(null)
-    const [mode, setMode] = useState<Mode>('fast')
+    const { mode, setMode } = useMode()
     const [fetchingLevels, setFetchingLevels] = useState<Set<Level>>(new Set())
     const [failedLevels, setFailedLevels] = useState<Set<Level>>(new Set())
     const [historyRefresh, setHistoryRefresh] = useState(0)
     const [isSidebarOpen, setIsSidebarOpen] = useState(true)
     const [activeTopic, setActiveTopic] = useState('')
     const [isFromCache, setIsFromCache] = useState(false)
-    const [loadingMeta, setLoadingMeta] = useState<{ mode: Mode, level: Level } | null>(null)
+    const [loadingMeta, setLoadingMeta] = useState<{ mode: Mode, level: Level, topic: string } | null>(null)
 
     const { checkAction, recordAction, showPremiumModal, setShowPremiumModal } = useUsageGate()
 
-    // Use a ref to track current search topic to avoid race conditions
+    // Use a ref to track current search topic and abort controller to avoid race conditions
     const currentTopicRef = useRef<string | null>(null)
+    const abortControllerRef = useRef<AbortController | null>(null)
 
 
     const fetchLevel = useCallback(async (topic: string, level: Level, overrideMode?: Mode, options?: { temperature?: number, regenerate?: boolean }) => {
@@ -62,12 +64,14 @@ export default function AppPage() {
                                 return {
                                     topic,
                                     explanations: { [level]: accumulatedContent },
-                                    cached: false
+                                    cached: false,
+                                    mode: activeMode
                                 }
                             }
                             return {
                                 ...prev,
-                                explanations: { ...prev.explanations, [level]: accumulatedContent }
+                                explanations: { ...prev.explanations, [level]: accumulatedContent },
+                                mode: activeMode
                             }
                         })
                     }
@@ -84,6 +88,7 @@ export default function AppPage() {
                     }, 1500)
                 },
                 (err) => {
+                    if (err.name === 'AbortError') return
                     console.error(`Failed to stream ${level}:`, err)
                     setFailedLevels(prev => new Set(prev).add(level))
                     setFetchingLevels(prev => {
@@ -91,9 +96,11 @@ export default function AppPage() {
                         next.delete(level)
                         return next
                     })
-                }
+                },
+                abortControllerRef.current?.signal
             )
-        } catch (err) {
+        } catch (err: any) {
+            if (err.name === 'AbortError') return
             console.error(`Failed to start stream for ${level}:`, err)
             setFailedLevels(prev => new Set(prev).add(level))
             setFetchingLevels(prev => {
@@ -105,19 +112,35 @@ export default function AppPage() {
     }, [mode])
 
     useEffect(() => {
-        if (result && !loading && fetchingLevels.size === 0) {
+        // Only cache if the result mode matches the current UI mode to avoid stale data caching
+        if (result && !loading && fetchingLevels.size === 0 && result.mode === mode) {
             const cacheKey = `${result.topic}:${mode}`
-            responseCacheSession.set(cacheKey, { ...result, mode })
+            responseCacheSession.set(cacheKey, { ...result })
         }
     }, [result, loading, fetchingLevels, mode])
 
     const handleSearch = useCallback(async (topic: string, _forceRefresh: boolean = false, requestedMode?: Mode, requestedLevel?: Level) => {
+        if (!topic.trim()) return;
+
+        // Abort previous request immediately
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort()
+        }
+        abortControllerRef.current = new AbortController()
+
         // Restore mode/level if provided (e.g. from history)
         const activeMode = requestedMode || mode
         const activeLevel = requestedLevel || (activeMode === 'technical_depth' ? 'eli5' : selectedLevel)
 
-        if (requestedMode) setMode(requestedMode)
-        if (requestedLevel) setSelectedLevel(requestedLevel)
+        // Clear state immediately for fresh feel
+        if (!_forceRefresh) {
+            setResult(null)
+            setError(null)
+        }
+
+        // Sync visual mode indicators immediately
+        if (requestedMode && requestedMode !== mode) setMode(requestedMode)
+        if (requestedLevel && requestedLevel !== selectedLevel) setSelectedLevel(activeLevel)
 
         // Usage gate check (uses activeMode)
         const { allowed: searchAllowed, downgraded } = checkAction('search', activeMode)
@@ -147,7 +170,7 @@ export default function AppPage() {
                 setIsFromCache(true)
 
                 // If the cached response has a different mode, sync it
-                if (cachedResponse.mode) setMode(cachedResponse.mode)
+                if (cachedResponse.mode && cachedResponse.mode !== mode) setMode(cachedResponse.mode)
 
                 // Try to find a level in the cached explanations if the current activeLevel isn't there
                 if (!cachedResponse.explanations[activeLevel]) {
@@ -168,15 +191,13 @@ export default function AppPage() {
         recordAction('search', effectiveMode)
 
         setActiveTopic(topic)
-        setLoadingMeta({ mode: effectiveMode, level: activeLevel })
+        setLoadingMeta({ mode: effectiveMode, level: activeLevel, topic })
         setLoading(true)
         setIsFromCache(false)
         setError(null)
 
         // If regenerating, we keep the previous result but will overwrite the active level
-        if (!_forceRefresh) {
-            setResult(null)
-        } else {
+        if (_forceRefresh) {
             // Regeneration specific: Clear current level to trigger LoadingState
             setResult(prev => prev ? {
                 ...prev,
@@ -205,7 +226,30 @@ export default function AppPage() {
         await fetchLevel(topic, activeLevel, effectiveMode)
         setLoading(false)
         setLoadingMeta(null)
-    }, [mode, selectedLevel, fetchLevel, checkAction, recordAction])
+    }, [mode, setMode, selectedLevel, fetchLevel, checkAction, recordAction])
+
+    // Mid-conversation mode switch detection
+    useEffect(() => {
+        // Trigger a new search if:
+        // 1. We have an active topic.
+        // 2. We aren't currently loading.
+        // 3. The current UI mode differs from the mode used to generate the current result.
+        // 4. We aren't already in the middle of a transition.
+        if (activeTopic && !loading && result && result.mode !== mode && !loadingMeta) {
+            const cacheKey = `${activeTopic}:${mode}`
+            const cachedResponse = responseCacheSession.get(cacheKey)
+
+            if (cachedResponse) {
+                console.log('Switching to cached result for mode', mode)
+                setResult(cachedResponse)
+                setIsFromCache(true)
+                setTimeout(() => setIsFromCache(false), 3000)
+            } else {
+                console.log('Mode changed, triggering fresh search for', activeTopic)
+                handleSearch(activeTopic, false, mode)
+            }
+        }
+    }, [mode, activeTopic, loading, result, loadingMeta, handleSearch])
 
     const handleGoHome = useCallback(() => {
         setResult(null)
@@ -275,124 +319,163 @@ export default function AppPage() {
                             value={activeTopic}
                         />
 
-                        {(!result || (fetchingLevels.has(selectedLevel) && !result.explanations[selectedLevel])) && loading && (
-                            <div className="bg-dark-800/50 backdrop-blur-sm border border-dark-700 rounded-2xl shadow-2xl overflow-hidden">
-                                <LoadingState
-                                    mode={loadingMeta?.mode || mode}
-                                    level={loadingMeta?.level || selectedLevel}
-                                    topic={activeTopic}
-                                />
-                            </div>
-                        )}
-
-                        {!result && !loading && (
-                            <section className="bg-dark-800/50 backdrop-blur-sm border border-dark-700 rounded-2xl p-6 shadow-2xl">
-                                <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                                    <span className="w-2 h-6 bg-cyan-500 rounded-full mr-1"></span>
-                                    Popular Topics
-                                </h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                                    {[
-                                        { topic: 'blockchain', description: 'Distributed ledger technology' },
-                                        { topic: 'quantum computing', description: 'Quantum mechanics in computing' },
-                                        { topic: 'artificial intelligence', description: 'Machine learning & neural networks' },
-                                        { topic: 'climate change', description: 'Environmental science' },
-                                        { topic: 'cryptocurrency', description: 'Bitcoin, Ethereum & NFTs' },
-                                        { topic: 'space exploration', description: 'SpaceX, NASA & beyond' },
-                                    ].map(({ topic, description }) => (
-                                        <button
-                                            key={topic}
-                                            onClick={() => handleSearch(topic)}
-                                            disabled={loading}
-                                            className="group flex flex-col items-start gap-2 p-4 bg-dark-700/50 hover:bg-dark-700 border border-dark-600 hover:border-cyan-500/50 rounded-xl transition-all text-left shadow-lg"
-                                        >
-                                            <div className="flex flex-col">
-                                                <span className="text-white font-medium text-sm group-hover:text-cyan-400 transition-colors uppercase tracking-wide">{topic}</span>
-                                                <span className="text-gray-400 text-xs mt-1">{description}</span>
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            </section>
-                        )}
-
-
-
-                        {error && (
-                            <div className="bg-red-900/20 border border-red-500/50 text-red-200 p-8 rounded-2xl text-center space-y-4 animate-in zoom-in-95 duration-300">
-                                <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <span className="text-2xl">⚠️</span>
-                                </div>
-                                <h3 className="text-lg font-bold">Oops, something went wrong</h3>
-                                <p className="text-sm text-red-200/70 max-w-md mx-auto">{error}</p>
-                                <button
-                                    onClick={() => {
-                                        setLoadingMeta(null); // Reset meta before retry
-                                        handleSearch(activeTopic, true);
-                                    }}
-                                    className="px-6 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-xl text-sm font-medium transition-all"
+                        <AnimatePresence mode="wait">
+                            {loading && (!result || (fetchingLevels.has(selectedLevel) && !result.explanations[selectedLevel])) ? (
+                                <motion.div
+                                    key={`loading-${loadingMeta?.mode || mode}-${loadingMeta?.topic || activeTopic}`}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.98 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="bg-dark-800/50 backdrop-blur-sm border border-dark-700 rounded-2xl shadow-2xl overflow-hidden"
                                 >
-                                    Try again
-                                </button>
-                            </div>
-                        )}
-
-                        {/* Result Section */}
-                        {result && (
-                            <section className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <div className="flex flex-col md:flex-row md:justify-between items-center gap-4">
-                                    <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-                                        {mode !== 'technical_depth' && (
-                                            <LevelDropdown selected={selectedLevel} onChange={setSelectedLevel} />
-                                        )}
-                                        <button
-                                            onClick={() => handleSearch(result.topic, true)}
-                                            disabled={loading}
-                                            className={`${mode === 'technical_depth' ? 'flex' : 'hidden md:flex'} items-center gap-2 px-4 py-3 bg-dark-700 hover:bg-dark-600 border border-dark-600 rounded-lg text-white transition-all disabled:opacity-50 w-full md:w-auto justify-center`}
-                                            title="Regenerate"
-                                        >
-                                            <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                                            <span className={`${mode === 'technical_depth' ? 'inline' : 'md:hidden lg:inline'} text-sm font-medium`}>Regenerate</span>
-                                        </button>
+                                    <LoadingState
+                                        mode={loadingMeta?.mode || mode}
+                                        level={loadingMeta?.level || selectedLevel}
+                                        topic={loadingMeta?.topic || activeTopic}
+                                    />
+                                </motion.div>
+                            ) : error ? (
+                                <motion.div
+                                    key="error"
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="bg-red-900/20 border border-red-500/50 text-red-200 p-8 rounded-2xl text-center space-y-4"
+                                >
+                                    <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <span className="text-2xl">⚠️</span>
                                     </div>
-                                    <div className="hidden md:block">
-                                        <ExportDropdown topic={result.topic} explanations={result.explanations} mode={mode} />
-                                    </div>
-                                </div>
-
-                                <div id="export-content" className="space-y-6">
-                                    <div className="border-b border-dark-700 pb-4 flex flex-col md:flex-row items-center md:justify-between gap-2">
-                                        <h2 className="text-2xl md:text-3xl font-bold text-white text-center md:text-left tracking-tight">{result.topic}</h2>
-                                        {isFromCache && (
-                                            <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(6,182,212,0.1)] animate-pulse uppercase tracking-widest">
-                                                Loaded from session cache
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    {fetchingLevels.has(selectedLevel) && !result.explanations[selectedLevel] ? (
-                                        <div className="bg-dark-800/50 backdrop-blur-sm rounded-xl border border-dark-700 shadow-xl overflow-hidden">
-                                            <LoadingState
-                                                mode={loadingMeta?.mode || mode}
-                                                level={loadingMeta?.level || selectedLevel}
-                                                topic={result.topic}
-                                            />
+                                    <h3 className="text-lg font-bold">Oops, something went wrong</h3>
+                                    <p className="text-sm text-red-200/70 max-w-md mx-auto">{error}</p>
+                                    <button
+                                        onClick={() => {
+                                            setLoadingMeta(null);
+                                            handleSearch(activeTopic, true);
+                                        }}
+                                        className="px-6 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-xl text-sm font-medium transition-all"
+                                    >
+                                        Try again
+                                    </button>
+                                </motion.div>
+                            ) : result ? (
+                                <motion.section
+                                    key={`result-${result.topic}-${mode}`}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.5, ease: "easeOut" }}
+                                    className="space-y-6"
+                                >
+                                    <div className="flex flex-col md:flex-row md:justify-between items-center gap-4">
+                                        <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+                                            {mode !== 'technical_depth' && (
+                                                <LevelDropdown selected={selectedLevel} onChange={setSelectedLevel} />
+                                            )}
+                                            <button
+                                                onClick={() => handleSearch(result.topic, true)}
+                                                disabled={loading}
+                                                className={`${mode === 'technical_depth' ? 'flex' : 'hidden md:flex'} items-center gap-2 px-4 py-3 bg-dark-700 hover:bg-dark-600 border border-dark-600 rounded-lg text-white transition-all disabled:opacity-50 w-full md:w-auto justify-center`}
+                                                title="Regenerate"
+                                            >
+                                                <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                                                <span className={`${mode === 'technical_depth' ? 'inline' : 'md:hidden lg:inline'} text-sm font-medium`}>Regenerate</span>
+                                            </button>
                                         </div>
-                                    ) : result.explanations[selectedLevel] ? (
-                                        <ExplanationCard
-                                            level={selectedLevel}
-                                            content={result.explanations[selectedLevel]}
-                                            mode={mode}
-                                            streaming={fetchingLevels.has(selectedLevel)}
-                                        />
-                                    ) : (
-                                        <div className="bg-dark-800/50 backdrop-blur-sm rounded-xl p-16 text-center border border-dark-700 shadow-xl">
-                                            <p className="text-gray-500 italic">No explanation available for this level.</p>
+                                        <div className="hidden md:block">
+                                            <ExportDropdown topic={result.topic} explanations={result.explanations} mode={mode} />
                                         </div>
-                                    )}
-                                </div>
-                            </section>
-                        )}
+                                    </div>
+
+                                    <div id="export-content" className="space-y-6">
+                                        <div className="border-b border-dark-700 pb-4 flex flex-col md:flex-row items-center md:justify-between gap-2">
+                                            <h2 className="text-2xl md:text-3xl font-bold text-white text-center md:text-left tracking-tight">{result.topic}</h2>
+                                            {isFromCache && (
+                                                <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(6,182,212,0.1)] animate-pulse uppercase tracking-widest">
+                                                    Loaded from session cache
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <div className="relative">
+                                            <AnimatePresence mode="wait">
+                                                {fetchingLevels.has(selectedLevel) && !result.explanations[selectedLevel] ? (
+                                                    <motion.div
+                                                        key="level-loading"
+                                                        initial={{ opacity: 0 }}
+                                                        animate={{ opacity: 1 }}
+                                                        exit={{ opacity: 0 }}
+                                                        className="bg-dark-800/50 backdrop-blur-sm rounded-xl border border-dark-700 shadow-xl overflow-hidden"
+                                                    >
+                                                        <LoadingState
+                                                            mode={loadingMeta?.mode || mode}
+                                                            level={loadingMeta?.level || selectedLevel}
+                                                            topic={result.topic}
+                                                        />
+                                                    </motion.div>
+                                                ) : result.explanations[selectedLevel] ? (
+                                                    <motion.div
+                                                        key={`explanation-${selectedLevel}`}
+                                                        initial={{ opacity: 0, x: 20 }}
+                                                        animate={{ opacity: 1, x: 0 }}
+                                                        transition={{ duration: 0.4 }}
+                                                    >
+                                                        <ExplanationCard
+                                                            level={selectedLevel}
+                                                            content={result.explanations[selectedLevel]}
+                                                            mode={mode}
+                                                            streaming={fetchingLevels.has(selectedLevel)}
+                                                        />
+                                                    </motion.div>
+                                                ) : (
+                                                    <motion.div
+                                                        key="no-explanation"
+                                                        initial={{ opacity: 0 }}
+                                                        animate={{ opacity: 1 }}
+                                                        className="bg-dark-800/50 backdrop-blur-sm rounded-xl p-16 text-center border border-dark-700 shadow-xl"
+                                                    >
+                                                        <p className="text-gray-500 italic">No explanation available for this level.</p>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
+                                    </div>
+                                </motion.section>
+                            ) : (
+                                <motion.section
+                                    key="popular-topics"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="bg-dark-800/50 backdrop-blur-sm border border-dark-700 rounded-2xl p-6 shadow-2xl"
+                                >
+                                    <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                                        <span className="w-2 h-6 bg-cyan-500 rounded-full mr-1"></span>
+                                        Popular Topics
+                                    </h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                        {[
+                                            { topic: 'blockchain', description: 'Distributed ledger technology' },
+                                            { topic: 'quantum computing', description: 'Quantum mechanics in computing' },
+                                            { topic: 'artificial intelligence', description: 'Machine learning & neural networks' },
+                                            { topic: 'climate change', description: 'Environmental science' },
+                                            { topic: 'cryptocurrency', description: 'Bitcoin, Ethereum & NFTs' },
+                                            { topic: 'space exploration', description: 'SpaceX, NASA & beyond' },
+                                        ].map(({ topic, description }) => (
+                                            <button
+                                                key={topic}
+                                                onClick={() => handleSearch(topic)}
+                                                disabled={loading}
+                                                className="group flex flex-col items-start gap-2 p-4 bg-dark-700/50 hover:bg-dark-700 border border-dark-600 hover:border-cyan-500/50 rounded-xl transition-all text-left shadow-lg"
+                                            >
+                                                <div className="flex flex-col">
+                                                    <span className="text-white font-medium text-sm group-hover:text-cyan-400 transition-colors uppercase tracking-wide">{topic}</span>
+                                                    <span className="text-gray-400 text-xs mt-1">{description}</span>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </motion.section>
+                            )}
+                        </AnimatePresence>
                     </main>
 
                     <footer className="mt-auto pt-16 text-center text-gray-600 text-xs pb-4 tracking-widest uppercase">

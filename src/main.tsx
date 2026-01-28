@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { UsageGateProvider } from './context/UsageGateContext'
+import { ModeProvider } from './context/ModeContext'
 import './index.css'
 import App from './App.tsx'
 
@@ -17,7 +18,9 @@ createRoot(root).render(
         <BrowserRouter>
             <AuthProvider>
                 <UsageGateProvider>
-                    <App />
+                    <ModeProvider>
+                        <App />
+                    </ModeProvider>
                 </UsageGateProvider>
             </AuthProvider>
         </BrowserRouter>
