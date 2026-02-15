@@ -56,7 +56,8 @@ export async function queryTopicStream(
     req: QueryRequest,
     onChunk: (chunk: string) => void,
     onDone: (data: any) => void,
-    onError: (err: any) => void
+    onError: (err: any) => void,
+    signal?: AbortSignal
 ) {
     const { data: { session } } = await supabase.auth.getSession()
     const headers: HeadersInit = {
@@ -66,52 +67,93 @@ export async function queryTopicStream(
         headers['Authorization'] = `Bearer ${session.access_token}`
     }
 
-    try {
-        const response = await fetch(`${API_URL}/api/query/stream`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(req),
-        })
+    let retries = 0
+    const maxRetries = 2
 
-        if (!response.ok) throw new Error(`API error: ${response.status}`)
+    const attemptStream = async (): Promise<void> => {
+        try {
+            const response = await fetch(`${API_URL}/api/query/stream`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(req),
+                signal,
+            })
 
-        const reader = response.body?.getReader()
-        const decoder = new TextDecoder()
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status}`)
+            }
 
-        if (!reader) throw new Error('ReadableStream not supported')
+            // Validate SSE content type
+            const contentType = response.headers.get('content-type')
+            if (!contentType?.includes('text/event-stream')) {
+                console.warn('Invalid content-type for SSE:', contentType)
+            }
 
-        let buffer = ''
-        while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
+            const reader = response.body?.getReader()
+            const decoder = new TextDecoder()
 
-            buffer += decoder.decode(value, { stream: true })
-            const lines = buffer.split('\n')
-            buffer = lines.pop() || ''
+            if (!reader) throw new Error('ReadableStream not supported')
 
-            for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                    const data = line.slice(6)
-                    if (data === '[DONE]') {
-                        onDone({})
-                        continue
-                    }
-                    try {
-                        const parsed = JSON.parse(data)
-                        if (parsed.chunk) {
-                            onChunk(parsed.chunk)
-                        } else if (parsed.error) {
-                            onError(new Error(parsed.error))
+            let buffer = ''
+
+            while (true) {
+                const { done, value } = await reader.read()
+                if (done) break
+
+                buffer += decoder.decode(value, { stream: true })
+                const lines = buffer.split('\n')
+                buffer = lines.pop() || ''
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = line.slice(6).trim()
+                        if (data === '[DONE]') {
+                            onDone({})
+                            return
                         }
-                    } catch (e) {
-                        console.error('Failed to parse stream chunk', e)
+                        try {
+                            const parsed = JSON.parse(data)
+                            if (parsed.chunk) {
+                                onChunk(parsed.chunk)
+                            } else if (parsed.warning) {
+                                // Display warning as part of the response
+                                onChunk(`\n\n${parsed.warning}`)
+                            } else if (parsed.error) {
+                                onError(new Error(parsed.error))
+                                return
+                            }
+                        } catch (e) {
+                            console.warn('Failed to parse SSE chunk:', data.substring(0, 100), e)
+                            // Don't fail entire stream on one bad chunk
+                        }
                     }
                 }
             }
+
+            // Flush remaining buffer if stream ended without [DONE]
+            if (buffer.trim()) {
+                console.warn('Stream ended with incomplete data in buffer:', buffer.substring(0, 100))
+            }
+
+        } catch (err: any) {
+            if (err.name === 'AbortError') {
+                console.log('Stream aborted by user')
+                return
+            }
+
+            // Retry on network errors if not aborted
+            if (retries < maxRetries && !signal?.aborted) {
+                retries++
+                console.warn(`Stream failed, retry ${retries}/${maxRetries}:`, err.message)
+                await new Promise(r => setTimeout(r, 1000 * retries))
+                return attemptStream()
+            }
+
+            onError(err)
         }
-    } catch (err) {
-        onError(err)
     }
+
+    await attemptStream()
 }
 
 export async function exportExplanations(req: ExportRequest): Promise<Blob> {

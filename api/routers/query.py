@@ -145,6 +145,9 @@ async def query_topic_stream(
 
     async def event_generator():
         full_content = ""
+        buffer = ""
+        last_flush_time = asyncio.get_event_loop().time()
+        
         try:
             # Yield metadata first
             yield f"data: {json.dumps({'topic': topic, 'level': level})}\n\n"
@@ -169,7 +172,11 @@ async def query_topic_stream(
                         asyncio.create_task(save_to_history(auth_data["user"], topic, [level], req.mode))
                     return
 
-            # If not cached or bypass requested, stream from model
+            # If not cached or bypass requested, stream from model with smart adaptive buffering
+            token_count = 0
+            chunk_count = 0
+            avg_chunk_size = 0.0
+            
             async for chunk in generate_stream_explanation(
                 topic, 
                 level, 
@@ -180,7 +187,60 @@ async def query_topic_stream(
                 regenerate=req.regenerate
             ):
                 full_content += chunk
-                yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+                chunk_count += 1
+                
+                # Track average chunk size to detect slow vs fast LLM responses
+                avg_chunk_size = (avg_chunk_size * (chunk_count - 1) + len(chunk)) / chunk_count
+                
+                # Check for truncation marker
+                if "__TRUNCATED__" in chunk:
+                    # Remove marker from content
+                    chunk = chunk.replace("__TRUNCATED__", "")
+                    if chunk:
+                        buffer += chunk
+                        if buffer:
+                            yield f"data: {json.dumps({'chunk': buffer})}\n\n"
+                            buffer = ""
+                    # Send truncation warning
+                    yield f"data: {json.dumps({'warning': '⚠️ Response may be incomplete due to length limits. Try regenerating or asking for a shorter explanation.'})}\n\n"
+                    break
+                
+                buffer += chunk
+                token_count += len(chunk.split())  # Rough token estimate
+                current_time = asyncio.get_event_loop().time()
+                
+                # Dynamic timeout based on response speed
+                # Fast responses (avg > 10 chars/chunk): 150ms timeout
+                # Slow responses (avg <= 10 chars/chunk): 250ms timeout for smoother feel
+                dynamic_timeout = 0.15 if avg_chunk_size > 10 else 0.25
+                
+                # Smart adaptive flush conditions:
+                # 1. First 10 tokens: flush immediately (fast perceived start)
+                # 2. Paragraph break (double newline): always flush for readability
+                # 3. After that: 50 chars OR sentence boundary OR dynamic timeout
+                should_flush = (
+                    token_count < 10 or  # First few tokens always flush
+                    buffer.endswith('\n\n') or  # Paragraph break - always flush
+                    len(buffer) > 50 or 
+                    buffer.endswith('. ') or 
+                    buffer.endswith('! ') or 
+                    buffer.endswith('? ') or 
+                    buffer.endswith('.\n') or 
+                    buffer.endswith('!\n') or 
+                    buffer.endswith('?\n') or
+                    buffer.endswith(': ') or
+                    buffer.endswith(';\n') or
+                    (current_time - last_flush_time) > dynamic_timeout
+                )
+                
+                if should_flush and buffer:
+                    yield f"data: {json.dumps({'chunk': buffer})}\n\n"
+                    buffer = ""
+                    last_flush_time = current_time
+            
+            # Flush any remaining content in buffer
+            if buffer:
+                yield f"data: {json.dumps({'chunk': buffer})}\n\n"
             
             # Final event
             yield "data: [DONE]\n\n"

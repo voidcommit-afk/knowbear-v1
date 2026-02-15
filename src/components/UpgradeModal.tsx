@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X, Lock, Star } from 'lucide-react';
 import { LoginButton } from './LoginButton';
-import { openCheckout } from '../lib/razorpay';
+import { createCheckoutSession } from '../lib/payments';
 import { useUsageGate } from '../hooks/useUsageGate';
 import { useAuth } from '../context/AuthContext';
 
@@ -11,42 +11,24 @@ interface UpgradeModalProps {
 }
 
 export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose }) => {
-    const { upgradeToPro } = useUsageGate();
     const [loading, setLoading] = useState(false);
-    // We can infer the "reason" based on context or pass it in, but for MVP
-    // a simple toggle or prop could work.
-    // However, since useUsageGate triggers this, let's assume we want to support both.
-    // For now, let's make it smart: if user is logged in but hits this, it's a paywall.
-    // If user is guest, it's guest limit.
-    // Ideally, pass 'mode' as prop or check auth state.
 
-    // Let's assume passed usage context or just check auth here for mode switching
-    // Actually, checking if user is logged in inside the modal is easiest if not passed.
-    // But LoginButton is used for guests.
-
-    // Let's add simple local state logic or props if we want to distinguish messages perfectly
-    // without passed props. For now, we'll keep it generic or use a prop if we update call sites.
-    // Since call sites (AppPage) just say isOpen, let's use the LoginButton presence as the differentiator.
-
-    // BETTER: The component using this knows. Let's rely on internal content switching if we had auth context.
-
-    // Refactor: We need useAuth to know if we show "Login" or "Upgrade"
-    // We'll import useAuth.
-
-    const handleUpgrade = () => {
+    const handleUpgrade = async () => {
         setLoading(true);
-        openCheckout(
-            () => {
-                setLoading(false);
-                upgradeToPro();
-                onClose();
-            },
-            (err) => {
-                setLoading(false);
-                console.error(err);
-                alert('Payment failed or cancelled');
-            }
-        );
+        try {
+            // Redirect to Dodo Payments checkout
+            await createCheckoutSession(
+                (err: any) => {
+                    setLoading(false);
+                    console.error(err);
+                    alert('Failed to initiate checkout. Please try again.');
+                }
+            );
+        } catch (error) {
+            setLoading(false);
+            console.error('Checkout error:', error);
+            alert('Failed to initiate checkout. Please try again.');
+        }
     };
 
     if (!isOpen) return null;
@@ -128,13 +110,13 @@ const UpgradeContent: React.FC<{ onUpgrade: () => void, loading: boolean }> = ({
                         disabled={loading}
                         className="w-full flex items-center justify-center gap-2 py-3 text-lg font-bold bg-white text-gray-900 rounded-lg hover:bg-gray-100 transition-all disabled:opacity-50"
                     >
-                        {loading ? 'Processing...' : 'Upgrade to Pro - ₹499/mo'}
+                        {loading ? 'Processing...' : 'Upgrade to Pro - ₹200/mo'}
                     </button>
                 )}
             </div>
 
             <p className="mt-4 text-xs text-gray-500">
-                {!user ? 'By signing in, you agree to our Terms of Service.' : 'Secure payment via Razorpay. Cancel anytime.'}
+                {!user ? 'By signing in, you agree to our Terms of Service.' : 'Secure payment via Dodo Payments. Cancel anytime.'}
             </p>
         </div>
     );

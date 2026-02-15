@@ -77,7 +77,7 @@ class SearchManager:
             "include_answer": True,
             "max_results": 5
         }
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:  # Reduced from 10s to 5s
             resp = await client.post("https://api.tavily.com/search", json=payload)
             resp.raise_for_status()
             data = resp.json()
@@ -93,7 +93,7 @@ class SearchManager:
             'X-API-KEY': settings.serper_api_key,
             'Content-Type': 'application/json'
         }
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:  # Reduced from 10s to 5s
             resp = await client.post(
                 "https://google.serper.dev/search",
                 headers=headers,
@@ -113,7 +113,7 @@ class SearchManager:
             "x-api-key": settings.exa_api_key,
             "Content-Type": "application/json"
         }
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:  # Reduced from 10s to 5s
             resp = await client.post(
                 "https://api.exa.ai/search",
                 headers=headers,
@@ -126,21 +126,33 @@ class SearchManager:
             return formatted
 
     async def _fallback_search(self, query: str, failed_provider: str) -> str:
+        """Optimized parallel fallback with faster timeout."""
+        import asyncio
+        
         providers = ["tavily", "serper", "exa"]
         if failed_provider in providers:
             providers.remove(failed_provider)
         
-        # Shuffle remaining
-        random.shuffle(providers)
-        
+        # Try all remaining providers in parallel for faster fallback
+        tasks = []
         for p in providers:
+            if p == "tavily":
+                tasks.append(self._search_tavily(query))
+            elif p == "serper":
+                tasks.append(self._search_serper(query))
+            elif p == "exa":
+                tasks.append(self._search_exa(query))
+        
+        # Return first successful result
+        for coro in asyncio.as_completed(tasks):
             try:
-                if p == "tavily": return await self._search_tavily(query)
-                if p == "serper": return await self._search_serper(query)
-                if p == "exa": return await self._search_exa(query)
+                result = await coro
+                if result:  # Return first non-empty result
+                    return result
             except Exception as e:
-                logger.warning(f"fallback_failed_{p}", error=str(e))
+                logger.warning("fallback_provider_failed", error=str(e))
                 continue
+        
         return ""
 
     async def get_images(self, query: str) -> List[Dict[str, str]]:

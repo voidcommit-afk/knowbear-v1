@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
-from routers import pinned, query, export, history
+from routers import pinned, query, export, history, webhooks, payments
 from services.cache import close_redis, get_redis
 from services.inference import close_client
 from services.model_provider import ModelProvider, ModelError, RequiresPro, ModelUnavailable
@@ -204,6 +204,8 @@ app.include_router(
 )
 app.include_router(export.router, prefix="/api")
 app.include_router(history.router, prefix="/api")
+app.include_router(webhooks.router)  # No prefix - webhooks use full path
+app.include_router(payments.router, prefix="/api")
 
 
 @app.get("/api/health", tags=["health"])

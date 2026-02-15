@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     tavily_api_key: str = ""
     serper_api_key: str = ""
     exa_api_key: str = ""
+    
+    # Dodo Payments Configuration
+    dodo_api_key: str = ""
+    dodo_webhook_endpoint: str = ""
+    dodo_webhook_url: str = ""
+    dodo_payment_link_id: str = ""
 
     class Config:
         env_file = (".env", "../.env")

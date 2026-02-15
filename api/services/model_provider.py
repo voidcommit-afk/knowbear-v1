@@ -144,12 +144,12 @@ class ModelProvider:
         elif mode == "fast":
             # Using llama-3.1-8b-instant for speed
             target_model = "llama-3.1-8b-instant"
-            max_tokens = 400 
+            max_tokens = 1200  # Increased from 400 to prevent truncation 
             
         # E. Simple / Old Modes (Explicit Cap)
         elif mode in ["eli5", "eli10"]:
             target_model = "llama-3.1-8b-instant"
-            max_tokens = 400 # ~300 words cap
+            max_tokens = 1200  # Increased from 400 to prevent truncation
             
         # 4. OVERRIDE if specific valid model requested
         req_model = kwargs.get("model")
@@ -176,7 +176,7 @@ class ModelProvider:
         is_pro = kwargs.get("is_pro", False) or kwargs.get("premium", False)
         # Apply word cap for fast modes even if pro (user's request)
         if mode == "fast":
-             max_tokens = 400
+             max_tokens = 1200  # Increased from 400 to prevent truncation
 
         try:
             completion = await self.groq_client.chat.completions.create(
@@ -218,13 +218,13 @@ class ModelProvider:
         elif mode == "fast":
              # Fast mode uses llama models only
              target_model = "llama-3.1-8b-instant"
-             max_tokens = 400
+             max_tokens = 1200  # Increased from 400 to prevent truncation
         else:
             target_model = "llama-3.1-8b-instant"
             max_tokens = 1024
             
         if mode in ["eli5", "eli10"]:
-            max_tokens = 400
+            max_tokens = 1200  # Increased from 400 to prevent truncation
 
         if not self.groq_client:
             # Fallback for now just returns full text as a single chunk if streaming is unavailable
@@ -243,8 +243,14 @@ class ModelProvider:
             )
 
             is_thinking = False
+            finish_reason = None
             async for chunk in stream:
                 content = chunk.choices[0].delta.content
+                
+                # Capture finish_reason to detect truncation
+                if chunk.choices[0].finish_reason:
+                    finish_reason = chunk.choices[0].finish_reason
+                
                 if not content:
                     continue
                 
@@ -263,6 +269,12 @@ class ModelProvider:
                 
                 if not is_thinking and content:
                     yield content
+            
+            # Log if response was truncated and signal frontend
+            if finish_reason == 'length':
+                print(f"WARNING: Response truncated due to max_tokens limit. Mode: {mode}, Model: {target_model}")
+                # Yield special truncation marker for frontend
+                yield "\n\n__TRUNCATED__"
         
         except Exception as e:
             print(f"Groq Streaming Error: {e}")

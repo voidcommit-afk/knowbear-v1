@@ -26,11 +26,15 @@ export default function MobileBottomNav({
     if (!hasResult && !loading) return null
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden pb-safe">
-            <div className="mx-4 mb-4">
-                <div className="bg-dark-900/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-2 flex items-center justify-between gap-2 relative">
-                    {/* Animated background pulse */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-purple-500/5 to-cyan-500/5 animate-pulse rounded-2xl -z-10" />
+        <>
+            {/* Spacer to prevent content overlap on mobile */}
+            <div className="h-24 md:hidden" />
+            
+            <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
+                <div className="mx-4 mb-4 pb-safe">
+                    <div className="bg-dark-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-2 flex items-center justify-between gap-2 relative">
+                        {/* Animated background pulse */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-purple-500/5 to-cyan-500/5 animate-pulse rounded-2xl -z-10" />
 
                     <div className="flex items-center gap-2 relative z-10 w-full justify-between">
                         <button
@@ -57,7 +61,8 @@ export default function MobileBottomNav({
                         </div>
                     </div>
                 </div>
+                </div>
             </div>
-        </div>
+        </>
     )
 }

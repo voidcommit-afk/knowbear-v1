@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { getHistory, deleteHistoryItem, clearHistory } from '../api'
+import { responseCache } from '../lib/responseCache'
 import {
     Clock,
     LogOut,
@@ -207,7 +208,16 @@ export default function Sidebar({ onSelectTopic, refreshTrigger, isOpen, onToggl
                                     {history.map(item => (
                                         <div
                                             key={item.id}
-                                            onClick={() => onSelectTopic(item.topic, item.mode, item.levels?.[0] as Level)}
+                                            onClick={() => {
+                                                // Check if response is cached before triggering search
+                                                const cached = responseCache.get(item.topic, item.mode)
+                                                if (cached) {
+                                                    console.log('✅ History click: using cached response for', item.topic, item.mode)
+                                                } else {
+                                                    console.log('⏳ History click: cache miss, will fetch', item.topic, item.mode)
+                                                }
+                                                onSelectTopic(item.topic, item.mode, item.levels?.[0] as Level)
+                                            }}
                                             className="group flex items-center justify-between p-2.5 rounded-lg hover:bg-dark-800 cursor-pointer transition-all border border-transparent hover:border-dark-700"
                                         >
                                             <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -249,11 +259,23 @@ export default function Sidebar({ onSelectTopic, refreshTrigger, isOpen, onToggl
                     )}
                 </nav>
 
-                {/* Footer / App Version */}
+                {/* Footer / App Version + Cache Stats */}
                 {isOpen && (
-                    <div className="p-4 border-t border-dark-700">
-                        <div className="flex items-center justify-center">
+                    <div className="p-4 border-t border-dark-700 space-y-2">
+                        <div className="flex items-center justify-between">
                             <span className="text-[10px] text-gray-600 font-mono">v2.0.0-beta</span>
+                            <button
+                                onClick={() => {
+                                    const stats = responseCache.getStats()
+                                    console.log('📦 Cache stats before clear:', stats)
+                                    responseCache.clear()
+                                    console.log('🗑️ Cache cleared')
+                                }}
+                                className="text-[10px] text-gray-600 hover:text-cyan-400 font-mono transition-colors"
+                                title="Clear response cache"
+                            >
+                                Clear Cache
+                            </button>
                         </div>
                     </div>
                 )}

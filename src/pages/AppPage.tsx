@@ -1,418 +1,256 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
-import { queryTopicStream } from '../api'
-import type { QueryResponse, Level, Mode } from '../types'
+import { useEffect } from 'react'
+import type { Level } from '../types'
 import SearchBar from '../components/SearchBar'
 import LevelDropdown from '../components/LevelDropdown'
 import ExplanationCard from '../components/ExplanationCard'
 import ExportDropdown from '../components/ExportDropdown'
-import { useUsageGate } from '../hooks/useUsageGate'
 import { UpgradeModal } from '../components/UpgradeModal'
-import { RefreshCcw } from 'lucide-react'
+import { useUsageGate } from '../hooks/useUsageGate'
 import Sidebar from '../components/Sidebar'
 import MobileBottomNav from '../components/MobileBottomNav'
 import { LoadingState } from '../components/LoadingState'
-
-// Global cache to persist across internal navigation (cleared on tab refresh)
-const responseCacheSession = new Map<string, any>()
+import { motion, AnimatePresence } from 'framer-motion'
+import { RefreshCcw } from 'lucide-react'
+import { responseCache } from '../lib/responseCache'
+import { useKnowBearStore } from '../store/useKnowBearStore'
 
 export default function AppPage() {
-    // const [pinned, setPinned] = useState<PinnedTopic[]>([])
-    const [loading, setLoading] = useState(false)
-    const [result, setResult] = useState<QueryResponse | null>(null)
-    const [selectedLevel, setSelectedLevel] = useState<Level>('eli5')
-    const [error, setError] = useState<string | null>(null)
-    const [mode, setMode] = useState<Mode>('fast')
-    const [fetchingLevels, setFetchingLevels] = useState<Set<Level>>(new Set())
-    const [failedLevels, setFailedLevels] = useState<Set<Level>>(new Set())
-    const [historyRefresh, setHistoryRefresh] = useState(0)
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-    const [activeTopic, setActiveTopic] = useState('')
-    const [isFromCache, setIsFromCache] = useState(false)
-    const [loadingMeta, setLoadingMeta] = useState<{ mode: Mode, level: Level } | null>(null)
+    // Zustand store selectors - only subscribe to what we need
+    const loading = useKnowBearStore(state => state.loading)
+    const result = useKnowBearStore(state => state.result)
+    const selectedLevel = useKnowBearStore(state => state.selectedLevel)
+    const error = useKnowBearStore(state => state.error)
+    const mode = useKnowBearStore(state => state.mode)
+    const fetchingLevels = useKnowBearStore(state => state.fetchingLevels)
+    const failedLevels = useKnowBearStore(state => state.failedLevels)
+    const isSidebarOpen = useKnowBearStore(state => state.isSidebarOpen)
+    const activeTopic = useKnowBearStore(state => state.activeTopic)
+    const isFromCache = useKnowBearStore(state => state.isFromCache)
+    const loadingMeta = useKnowBearStore(state => state.loadingMeta)
+    const modeSwitching = useKnowBearStore(state => state.modeSwitching)
+
+    // Actions
+    const setSelectedLevel = useKnowBearStore(state => state.setSelectedLevel)
+    const setMode = useKnowBearStore(state => state.setMode)
+    const setIsSidebarOpen = useKnowBearStore(state => state.setIsSidebarOpen)
+    const setModeSwitching = useKnowBearStore(state => state.setModeSwitching)
+    const setResult = useKnowBearStore(state => state.setResult)
+    const setFetchingLevels = useKnowBearStore(state => state.setFetchingLevels)
+    const setIsFromCache = useKnowBearStore(state => state.setIsFromCache)
+    const startSearch = useKnowBearStore(state => state.startSearch)
+    const fetchLevel = useKnowBearStore(state => state.fetchLevel)
+    const abortCurrentStream = useKnowBearStore(state => state.abortCurrentStream)
 
     const { checkAction, recordAction, showPremiumModal, setShowPremiumModal } = useUsageGate()
 
-    // Use a ref to track current search topic to avoid race conditions
-    const currentTopicRef = useRef<string | null>(null)
-
-
-    const fetchLevel = useCallback(async (topic: string, level: Level, overrideMode?: Mode, options?: { temperature?: number, regenerate?: boolean }) => {
-        if (!topic) return
-        setFetchingLevels(prev => new Set(prev).add(level))
-        const activeMode = overrideMode || mode
-
-        let accumulatedContent = ''
-
-        try {
-            await queryTopicStream(
-                {
-                    topic,
-                    levels: [level],
-                    mode: activeMode,
-                    premium: localStorage.getItem('knowbear_pro_status') === 'true',
-                    bypass_cache: options?.regenerate,
-                    temperature: options?.temperature,
-                    regenerate: options?.regenerate
-                },
-                (chunk) => {
-                    accumulatedContent += chunk
-                    if (currentTopicRef.current === topic) {
-                        setResult(prev => {
-                            if (!prev || prev.topic !== topic) {
-                                return {
-                                    topic,
-                                    explanations: { [level]: accumulatedContent },
-                                    cached: false
-                                }
-                            }
-                            return {
-                                ...prev,
-                                explanations: { ...prev.explanations, [level]: accumulatedContent }
-                            }
-                        })
-                    }
-                },
-                () => {
-                    setFetchingLevels(prev => {
-                        const next = new Set(prev)
-                        next.delete(level)
-                        return next
-                    })
-                    // Add delay to allow backend background task to finish saving history
-                    setTimeout(() => {
-                        setHistoryRefresh(prev => prev + 1)
-                    }, 1500)
-                },
-                (err) => {
-                    console.error(`Failed to stream ${level}:`, err)
-                    setFailedLevels(prev => new Set(prev).add(level))
-                    setFetchingLevels(prev => {
-                        const next = new Set(prev)
-                        next.delete(level)
-                        return next
-                    })
-                }
-            )
-        } catch (err) {
-            console.error(`Failed to start stream for ${level}:`, err)
-            setFailedLevels(prev => new Set(prev).add(level))
-            setFetchingLevels(prev => {
-                const next = new Set(prev)
-                next.delete(level)
-                return next
-            })
-        }
-    }, [mode])
-
+    // Log cache stats on mount
     useEffect(() => {
-        if (result && !loading && fetchingLevels.size === 0) {
-            const cacheKey = `${result.topic}:${mode}`
-            responseCacheSession.set(cacheKey, { ...result, mode })
-        }
-    }, [result, loading, fetchingLevels, mode])
-
-    const handleSearch = useCallback(async (topic: string, _forceRefresh: boolean = false, requestedMode?: Mode, requestedLevel?: Level) => {
-        // Restore mode/level if provided (e.g. from history)
-        const activeMode = requestedMode || mode
-        const activeLevel = requestedLevel || (activeMode === 'technical_depth' ? 'eli5' : selectedLevel)
-
-        if (requestedMode) setMode(requestedMode)
-        if (requestedLevel) setSelectedLevel(requestedLevel)
-
-        // Usage gate check (uses activeMode)
-        const { allowed: searchAllowed, downgraded } = checkAction('search', activeMode)
-
-        if (!searchAllowed) {
-            return
-        }
-
-        // Gating for Premium Modes
-        if (activeMode === 'ensemble' || activeMode === 'technical_depth') {
-            const { allowed } = checkAction('premium_mode')
-            if (!allowed) return
-        }
-
-        // Determine actual mode to use
-        const effectiveMode = downgraded ? 'fast' : activeMode
-        if (downgraded) setMode('fast')
-
-        // Check Cache first
-        if (!_forceRefresh) {
-            const cacheKey = `${topic}:${effectiveMode}`
-            const cachedResponse = responseCacheSession.get(cacheKey)
-            if (cachedResponse) {
-                console.log('Cache hit for', topic)
-                setResult(cachedResponse)
-                setActiveTopic(topic)
-                setIsFromCache(true)
-
-                // If the cached response has a different mode, sync it
-                if (cachedResponse.mode) setMode(cachedResponse.mode)
-
-                // Try to find a level in the cached explanations if the current activeLevel isn't there
-                if (!cachedResponse.explanations[activeLevel]) {
-                    const availableLevel = Object.keys(cachedResponse.explanations)[0] as Level
-                    if (availableLevel) setSelectedLevel(availableLevel)
-                }
-
-                // Clear any previous error/loading
-                setError(null)
-                setLoading(false)
-                setFetchingLevels(new Set())
-                // Hide cache indicator after a few seconds
-                setTimeout(() => setIsFromCache(false), 3000)
-                return
-            }
-        }
-
-        recordAction('search', effectiveMode)
-
-        setActiveTopic(topic)
-        setLoadingMeta({ mode: effectiveMode, level: activeLevel })
-        setLoading(true)
-        setIsFromCache(false)
-        setError(null)
-
-        // If regenerating, we keep the previous result but will overwrite the active level
-        if (!_forceRefresh) {
-            setResult(null)
+        const stats = responseCache.getStats()
+        if (stats.count > 0) {
+            console.log('📦 Cache loaded on mount:', stats)
         } else {
-            // Regeneration specific: Clear current level to trigger LoadingState
-            setResult(prev => prev ? {
-                ...prev,
-                explanations: { ...prev.explanations, [activeLevel]: '' }
-            } : null)
-
-            // Regeneration specific: Increase temperature to 0.95–1.1
-            const randomTemp = Math.random() * (1.1 - 0.95) + 0.95
-            setFetchingLevels(new Set())
-            setFailedLevels(new Set())
-            currentTopicRef.current = topic
-            await fetchLevel(topic, activeLevel, effectiveMode, {
-                temperature: randomTemp,
-                regenerate: true
-            })
-            setLoading(false)
-            setLoadingMeta(null)
-            return
+            console.log('📦 Cache empty on mount')
         }
-
-        setFetchingLevels(new Set())
-        setFailedLevels(new Set())
-        currentTopicRef.current = topic
-
-        // Use fetchLevel which now handles streaming and mode override
-        await fetchLevel(topic, activeLevel, effectiveMode)
-        setLoading(false)
-        setLoadingMeta(null)
-    }, [mode, selectedLevel, fetchLevel, checkAction, recordAction])
-
-    const handleGoHome = useCallback(() => {
-        setResult(null)
-        setError(null)
-        setLoading(false)
-        setActiveTopic('')
-        currentTopicRef.current = null
-        window.scrollTo({ top: 0, behavior: 'smooth' })
     }, [])
 
-    // Fetch level when user switches and it's missing
+    // Handle mode changes
     useEffect(() => {
-        if (result &&
-            !result.explanations[selectedLevel] &&
-            !fetchingLevels.has(selectedLevel) &&
-            !failedLevels.has(selectedLevel)
-        ) {
-            fetchLevel(result.topic, selectedLevel)
-        }
-    }, [selectedLevel, result, fetchingLevels, failedLevels, fetchLevel])
+        if (activeTopic && !loading && result && result.mode !== mode && !loadingMeta) {
+            setModeSwitching(true)
 
-    // Track if mobile for sidebar default state
-    useEffect(() => {
-        if (window.innerWidth <= 768) {
-            setIsSidebarOpen(false)
+            // Abort old stream before mode switch
+            abortCurrentStream()
+
+            const cached = responseCache.get(activeTopic, mode)
+
+            if (cached) {
+                console.log('Switching to cached result for mode', mode)
+                // Clear old result first
+                setResult(null)
+                setFetchingLevels(new Set())
+                // Then set cached response
+                setTimeout(() => {
+                    setResult({ topic: activeTopic, explanations: cached.explanations, cached: true, mode })
+                    setIsFromCache(true)
+                    setModeSwitching(false)
+                    setTimeout(() => setIsFromCache(false), 3000)
+                }, 50)
+            } else {
+                console.log('Mode changed, triggering fresh search for', activeTopic)
+                // Clear old result
+                setResult(null)
+                setFetchingLevels(new Set())
+                handleSearch(activeTopic, false, mode).finally(() => setModeSwitching(false))
+            }
         }
-    }, [setIsSidebarOpen])
+    }, [mode, activeTopic, loading, result, loadingMeta])
+
+    const handleSearch = async (topic: string, forceRefresh: boolean = false, requestedMode?: any, requestedLevel?: Level) => {
+        await startSearch(topic, forceRefresh, requestedMode, requestedLevel, { checkAction, recordAction })
+    }
+
+    const handleSelectTopic = (topic: string, topicMode: any, level?: Level) => {
+        handleSearch(topic, false, topicMode, level)
+    }
+
+    const handleLevelClick = async (level: Level) => {
+        if (!result) return
+
+        const currentExplanation = result.explanations[level]
+        if (currentExplanation && !fetchingLevels.has(level) && !failedLevels.has(level)) {
+            setSelectedLevel(level)
+            return
+        }
+
+        // No usage gate for level switching - just set it
+        setSelectedLevel(level)
+
+        if (!currentExplanation && !fetchingLevels.has(level)) {
+            await fetchLevel(result.topic, level, mode, false)
+        }
+    }
+
+    const handleRegenerate = async () => {
+        if (!result || !activeTopic) return
+        await handleSearch(activeTopic, true, mode, selectedLevel)
+    }
 
     return (
-        <div className="flex min-h-screen bg-black overflow-hidden relative">
+        <div className="flex h-screen bg-dark-900 text-white overflow-hidden">
             <Sidebar
-                onSelectTopic={(topic: string, mode?: Mode, level?: Level) => { handleSearch(topic, false, mode, level) }}
-                refreshTrigger={historyRefresh}
                 isOpen={isSidebarOpen}
                 onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+                onSelectTopic={handleSelectTopic}
             />
 
-            {/* Main Content Area */}
-            <div className={`flex-1 min-w-0 flex flex-col relative transition-all duration-300 md:pl-0 ${isSidebarOpen ? 'md:pl-64' : 'md:pl-16'}`}>
-                {/* Starry Background */}
-                <div className="stars"></div>
-                <div className="stars stars-2"></div>
+            <main className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-y-auto">
+                    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+                        <div className="space-y-4">
+                            <SearchBar
+                                onSearch={(topic) => handleSearch(topic, false)}
+                                loading={loading}
+                                mode={mode}
+                                onModeChange={setMode}
+                            />
 
-                {/* Content Container */}
-                <div className="relative z-10 w-full max-w-4xl mx-auto flex flex-col min-h-[90vh] py-8 px-4 md:px-8 pb-32 md:pb-8">
-
-                    <header className="text-center mb-12 mt-10 flex flex-col items-center">
-                        <button
-                            onClick={handleGoHome}
-                            className="group flex flex-col md:flex-row items-center gap-3 transition-transform hover:scale-105 active:scale-95 focus:outline-none cursor-pointer"
-                            aria-label="KnowBear Home"
-                        >
-                            <h1 className="text-4xl md:text-5xl font-bold text-white flex flex-col md:flex-row items-center gap-3">
-                                <img src="/favicon.svg" alt="KnowBear Logo" className="w-16 h-16 drop-shadow-[0_0_15px_rgba(6,182,212,0.5)] group-hover:drop-shadow-[0_0_25px_rgba(6,182,212,0.8)] transition-all" />
-                                <span>Know<span className="text-cyan-500 drop-shadow-[0_0_10px_rgba(6,182,212,0.8)]">Bear</span></span>
-                            </h1>
-                        </button>
-                        <p className="text-gray-400 mt-2 text-lg">AI-powered explanations for any topic</p>
-                    </header>
-
-                    <main className="space-y-8 flex-grow">
-                        <SearchBar
-                            onSearch={handleSearch}
-                            loading={loading}
-                            mode={mode}
-                            onModeChange={setMode}
-                            value={activeTopic}
-                        />
-
-                        {(!result || (fetchingLevels.has(selectedLevel) && !result.explanations[selectedLevel])) && loading && (
-                            <div className="bg-dark-800/50 backdrop-blur-sm border border-dark-700 rounded-2xl shadow-2xl overflow-hidden">
-                                <LoadingState
-                                    mode={loadingMeta?.mode || mode}
-                                    level={loadingMeta?.level || selectedLevel}
-                                    topic={activeTopic}
-                                />
-                            </div>
-                        )}
-
-                        {!result && !loading && (
-                            <section className="bg-dark-800/50 backdrop-blur-sm border border-dark-700 rounded-2xl p-6 shadow-2xl">
-                                <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                                    <span className="w-2 h-6 bg-cyan-500 rounded-full mr-1"></span>
-                                    Popular Topics
-                                </h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                                    {[
-                                        { topic: 'blockchain', description: 'Distributed ledger technology' },
-                                        { topic: 'quantum computing', description: 'Quantum mechanics in computing' },
-                                        { topic: 'artificial intelligence', description: 'Machine learning & neural networks' },
-                                        { topic: 'climate change', description: 'Environmental science' },
-                                        { topic: 'cryptocurrency', description: 'Bitcoin, Ethereum & NFTs' },
-                                        { topic: 'space exploration', description: 'SpaceX, NASA & beyond' },
-                                    ].map(({ topic, description }) => (
-                                        <button
-                                            key={topic}
-                                            onClick={() => handleSearch(topic)}
-                                            disabled={loading}
-                                            className="group flex flex-col items-start gap-2 p-4 bg-dark-700/50 hover:bg-dark-700 border border-dark-600 hover:border-cyan-500/50 rounded-xl transition-all text-left shadow-lg"
-                                        >
-                                            <div className="flex flex-col">
-                                                <span className="text-white font-medium text-sm group-hover:text-cyan-400 transition-colors uppercase tracking-wide">{topic}</span>
-                                                <span className="text-gray-400 text-xs mt-1">{description}</span>
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            </section>
-                        )}
-
-
-
-                        {error && (
-                            <div className="bg-red-900/20 border border-red-500/50 text-red-200 p-8 rounded-2xl text-center space-y-4 animate-in zoom-in-95 duration-300">
-                                <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <span className="text-2xl">⚠️</span>
-                                </div>
-                                <h3 className="text-lg font-bold">Oops, something went wrong</h3>
-                                <p className="text-sm text-red-200/70 max-w-md mx-auto">{error}</p>
-                                <button
-                                    onClick={() => {
-                                        setLoadingMeta(null); // Reset meta before retry
-                                        handleSearch(activeTopic, true);
-                                    }}
-                                    className="px-6 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-xl text-sm font-medium transition-all"
+                            {isFromCache && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0 }}
+                                    className="flex items-center gap-2 text-sm text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 rounded-lg px-4 py-2"
                                 >
-                                    Try again
-                                </button>
-                            </div>
-                        )}
+                                    <span className="font-mono">⚡</span>
+                                    <span>Loaded from cache</span>
+                                </motion.div>
+                            )}
 
-                        {/* Result Section */}
-                        {result && (
-                            <section className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <div className="flex flex-col md:flex-row md:justify-between items-center gap-4">
-                                    <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-                                        {mode !== 'technical_depth' && (
-                                            <LevelDropdown selected={selectedLevel} onChange={setSelectedLevel} />
-                                        )}
-                                        <button
-                                            onClick={() => handleSearch(result.topic, true)}
-                                            disabled={loading}
-                                            className={`${mode === 'technical_depth' ? 'flex' : 'hidden md:flex'} items-center gap-2 px-4 py-3 bg-dark-700 hover:bg-dark-600 border border-dark-600 rounded-lg text-white transition-all disabled:opacity-50 w-full md:w-auto justify-center`}
-                                            title="Regenerate"
-                                        >
-                                            <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                                            <span className={`${mode === 'technical_depth' ? 'inline' : 'md:hidden lg:inline'} text-sm font-medium`}>Regenerate</span>
-                                        </button>
-                                    </div>
-                                    <div className="hidden md:block">
-                                        <ExportDropdown topic={result.topic} explanations={result.explanations} mode={mode} />
-                                    </div>
-                                </div>
+                            {modeSwitching && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="flex items-center gap-2 text-sm text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-lg px-4 py-2"
+                                >
+                                    <RefreshCcw className="w-4 h-4 animate-spin" />
+                                    <span>Switching mode...</span>
+                                </motion.div>
+                            )}
 
-                                <div id="export-content" className="space-y-6">
-                                    <div className="border-b border-dark-700 pb-4 flex flex-col md:flex-row items-center md:justify-between gap-2">
-                                        <h2 className="text-2xl md:text-3xl font-bold text-white text-center md:text-left tracking-tight">{result.topic}</h2>
-                                        {isFromCache && (
-                                            <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(6,182,212,0.1)] animate-pulse uppercase tracking-widest">
-                                                Loaded from session cache
-                                            </span>
-                                        )}
-                                    </div>
+                            {error && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-red-400"
+                                >
+                                    {error}
+                                </motion.div>
+                            )}
+                        </div>
 
-                                    {fetchingLevels.has(selectedLevel) && !result.explanations[selectedLevel] ? (
-                                        <div className="bg-dark-800/50 backdrop-blur-sm rounded-xl border border-dark-700 shadow-xl overflow-hidden">
-                                            <LoadingState
-                                                mode={loadingMeta?.mode || mode}
-                                                level={loadingMeta?.level || selectedLevel}
+                        <AnimatePresence mode="wait">
+                            {loading && loadingMeta ? (
+                                <motion.div
+                                    key="loading"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                >
+                                    <LoadingState
+                                        mode={loadingMeta.mode}
+                                        level={loadingMeta.level}
+                                        topic={loadingMeta.topic}
+                                    />
+                                </motion.div>
+                            ) : result ? (
+                                <motion.section
+                                    key={`result-${result.topic}`}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.5, ease: "easeOut" }}
+                                    className="space-y-6"
+                                >
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                        <div>
+                                            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                                                {result.topic}
+                                            </h2>
+                                            <p className="text-sm text-gray-500 mt-1">
+                                                Mode: <span className="text-cyan-400 font-medium">{mode}</span>
+                                            </p>
+                                        </div>
+
+                                        <div className="flex items-center gap-3">
+                                            <LevelDropdown
+                                                selected={selectedLevel}
+                                                onChange={handleLevelClick}
+                                            />
+                                            <ExportDropdown
                                                 topic={result.topic}
+                                                explanations={result.explanations}
+                                                mode={mode}
                                             />
                                         </div>
-                                    ) : result.explanations[selectedLevel] ? (
-                                        <ExplanationCard
-                                            level={selectedLevel}
-                                            content={result.explanations[selectedLevel]}
-                                            mode={mode}
-                                            streaming={fetchingLevels.has(selectedLevel)}
-                                        />
-                                    ) : (
-                                        <div className="bg-dark-800/50 backdrop-blur-sm rounded-xl p-16 text-center border border-dark-700 shadow-xl">
-                                            <p className="text-gray-500 italic">No explanation available for this level.</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </section>
-                        )}
-                    </main>
+                                    </div>
 
-                    <footer className="mt-auto pt-16 text-center text-gray-600 text-xs pb-4 tracking-widest uppercase">
-                        © 2026 KnowBear • Smart Explanations
-                    </footer>
+                                    <ExplanationCard
+                                        level={selectedLevel}
+                                        content={result.explanations[selectedLevel] || ''}
+                                        streaming={fetchingLevels.has(selectedLevel)}
+                                        mode={mode}
+                                    />
+                                </motion.section>
+                            ) : (
+                                <motion.div
+                                    key="empty"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    className="text-center py-20"
+                                >
+                                    <p className="text-gray-600 text-lg">
+                                        Search for a topic to get started
+                                    </p>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
                 </div>
-            </div>
 
-            <MobileBottomNav
-                onRegenerate={() => result && handleSearch(result.topic, true)}
-                topic={result?.topic || ''}
-                explanations={result?.explanations || {}}
-                loading={loading}
-                hasResult={!!result}
-                isSidebarOpen={isSidebarOpen}
-                onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-                mode={mode}
-            />
+                <MobileBottomNav
+                    onRegenerate={handleRegenerate}
+                    topic={activeTopic}
+                    explanations={result?.explanations || {}}
+                    loading={loading}
+                    hasResult={!!result}
+                    isSidebarOpen={isSidebarOpen}
+                    onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+                    mode={mode}
+                />
+            </main>
 
-            <UpgradeModal isOpen={showPremiumModal} onClose={() => setShowPremiumModal(false)} />
-        </div >
+            {showPremiumModal && (
+                <UpgradeModal isOpen={showPremiumModal} onClose={() => setShowPremiumModal(false)} />
+            )}
+        </div>
     )
 }
