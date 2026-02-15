@@ -85,11 +85,14 @@ export const useKnowBearStore = create<KnowBearState>()(
                     console.log('Aborting previous request')
                     abortController.abort()
                 }
-                set({ abortController: new AbortController() })
+                const newController = new AbortController()
+                set({ abortController: newController })
+                return newController
             },
 
             // Fetch a specific level
             fetchLevel: async (topic: string, level: Level, mode: Mode, premium: boolean, options?: { temperature?: number; regenerate?: boolean }) => {
+                console.log('🔍 fetchLevel called:', { topic, level, mode, premium })
                 const state = get()
 
                 // Add to fetching set
@@ -97,9 +100,16 @@ export const useKnowBearStore = create<KnowBearState>()(
                 newFetching.add(level)
                 set({ fetchingLevels: newFetching })
 
+                // Ensure we have an abort controller
+                const controller = state.abortController || new AbortController()
+                if (!state.abortController) {
+                    set({ abortController: controller })
+                }
+
                 try {
                     let streamedText = ''
 
+                    console.log('📡 Starting stream for', level)
                     await queryTopicStream(
                         {
                             topic,
@@ -123,30 +133,33 @@ export const useKnowBearStore = create<KnowBearState>()(
                                         }
                                     }
                                 })
+                            } else {
+                                console.warn('⚠️ No result object to update')
                             }
                         },
                         () => {
+                            console.log('✅ Stream completed for', level)
                             // onDone - cache the response
                             const finalResult = get().result
-                            if (finalResult && finalResult.explanations && !state.loading) {
+                            if (finalResult && finalResult.explanations) {
                                 responseCache.set(topic, mode, finalResult.explanations)
-                                console.log('Cached response:', topic, mode, responseCache.getStats())
+                                console.log('📦 Cached response:', topic, mode)
                             }
                         },
                         (error: Error) => {
-                            console.error(`Failed to fetch ${level}:`, error)
+                            console.error(`❌ Failed to fetch ${level}:`, error)
                             const newFailed = new Set(get().failedLevels)
                             newFailed.add(level)
-                            set({ failedLevels: newFailed })
+                            set({ failedLevels: newFailed, error: error.message })
                         },
-                        state.abortController?.signal
+                        controller.signal
                     )
                 } catch (err: any) {
                     if (err.name !== 'AbortError') {
-                        console.error(`Error fetching ${level}:`, err)
+                        console.error(`❌ Error fetching ${level}:`, err)
                         const newFailed = new Set(get().failedLevels)
                         newFailed.add(level)
-                        set({ failedLevels: newFailed })
+                        set({ failedLevels: newFailed, error: err.message })
                     }
                 } finally {
                     // Remove from fetching set
@@ -225,6 +238,7 @@ export const useKnowBearStore = create<KnowBearState>()(
                 }
 
                 // Start search
+                console.log('🚀 Starting search:', { topic, effectiveMode, activeLevel })
                 set({
                     activeTopic: topic,
                     loadingMeta: { mode: effectiveMode, level: activeLevel, topic },
@@ -248,7 +262,7 @@ export const useKnowBearStore = create<KnowBearState>()(
                     const randomTemp = Math.random() * (1.1 - 0.95) + 0.95
                     set({ fetchingLevels: new Set(), failedLevels: new Set() })
 
-                    await state.fetchLevel(topic, activeLevel, effectiveMode, false, {
+                    await get().fetchLevel(topic, activeLevel, effectiveMode, false, {
                         temperature: randomTemp,
                         regenerate: true
                     })
@@ -256,14 +270,15 @@ export const useKnowBearStore = create<KnowBearState>()(
                     return
                 }
 
-                // Fresh search
+                // Fresh search - initialize result object BEFORE calling fetchLevel
                 set({
                     result: { topic, explanations: {}, mode: effectiveMode, cached: false },
                     fetchingLevels: new Set(),
                     failedLevels: new Set()
                 })
 
-                await state.fetchLevel(topic, activeLevel, effectiveMode, false)
+                console.log('📝 Result initialized, calling fetchLevel')
+                await get().fetchLevel(topic, activeLevel, effectiveMode, false)
                 set({ loading: false, loadingMeta: null })
             },
 
