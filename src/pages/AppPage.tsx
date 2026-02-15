@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import type { Level } from '../types'
+import { useEffect, useState } from 'react'
+import type { Level, PinnedTopic } from '../types'
 import SearchBar from '../components/SearchBar'
 import LevelDropdown from '../components/LevelDropdown'
 import ExplanationCard from '../components/ExplanationCard'
@@ -9,10 +9,12 @@ import { useUsageGate } from '../hooks/useUsageGate'
 import Sidebar from '../components/Sidebar'
 import MobileBottomNav from '../components/MobileBottomNav'
 import { LoadingState } from '../components/LoadingState'
+import PinnedTopics from '../components/PinnedTopics'
 import { motion, AnimatePresence } from 'framer-motion'
 import { RefreshCcw } from 'lucide-react'
 import { responseCache } from '../lib/responseCache'
 import { useKnowBearStore } from '../store/useKnowBearStore'
+import { getPinnedTopics } from '../api'
 
 export default function AppPage() {
     // Zustand store selectors - only subscribe to what we need
@@ -42,15 +44,26 @@ export default function AppPage() {
     const abortCurrentStream = useKnowBearStore(state => state.abortCurrentStream)
 
     const { checkAction, recordAction, showPremiumModal, setShowPremiumModal } = useUsageGate()
+    const [pinnedTopics, setPinnedTopics] = useState<PinnedTopic[]>([])
+    const [loadingPinned, setLoadingPinned] = useState(true)
 
-    // Log cache stats on mount
+    // Load pinned topics deferred (after initial render) - don't block page load
     useEffect(() => {
+        // Log cache stats immediately
         const stats = responseCache.getStats()
         if (stats.count > 0) {
             console.log('📦 Cache loaded on mount:', stats)
-        } else {
-            console.log('📦 Cache empty on mount')
         }
+
+        // Defer pinned topics load to not block initial render
+        const timer = setTimeout(() => {
+            getPinnedTopics()
+                .then(topics => setPinnedTopics(topics))
+                .catch(err => console.error('Failed to load pinned topics:', err))
+                .finally(() => setLoadingPinned(false))
+        }, 100)
+
+        return () => clearTimeout(timer)
     }, [])
 
     // Handle mode changes
@@ -225,11 +238,17 @@ export default function AppPage() {
                                     key="empty"
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
-                                    className="text-center py-20"
+                                    className="text-center py-12"
                                 >
-                                    <p className="text-gray-600 text-lg">
+                                    <p className="text-gray-600 text-lg mb-8">
                                         Search for a topic to get started
                                     </p>
+                                    {!loadingPinned && pinnedTopics.length > 0 && (
+                                        <PinnedTopics
+                                            topics={pinnedTopics}
+                                            onSelect={(topic) => handleSearch(topic, false)}
+                                        />
+                                    )}
                                 </motion.div>
                             )}
                         </AnimatePresence>

@@ -177,7 +177,8 @@ export const useKnowBearStore = create<KnowBearState>()(
                 if (requestedMode && requestedMode !== state.mode) set({ mode: requestedMode })
                 if (requestedLevel && requestedLevel !== state.selectedLevel) set({ selectedLevel: activeLevel })
 
-                // Usage gate check
+                // Usage gate check (optional, graceful degradation)
+                let effectiveMode = activeMode
                 if (usageGate) {
                     const { allowed: searchAllowed, downgraded } = usageGate.checkAction('search', activeMode)
                     if (!searchAllowed) return
@@ -189,81 +190,81 @@ export const useKnowBearStore = create<KnowBearState>()(
                     }
 
                     // Determine effective mode
-                    const effectiveMode = downgraded ? 'fast' : activeMode
+                    effectiveMode = downgraded ? 'fast' : activeMode
                     if (downgraded) set({ mode: 'fast' })
 
-                    // Check cache
-                    if (!forceRefresh) {
-                        const cached = responseCache.get(topic, effectiveMode)
-                        if (cached) {
-                            console.log('Cache hit from localStorage:', topic, effectiveMode)
-                            set({
-                                result: { topic, explanations: cached.explanations, cached: true, mode: effectiveMode },
-                                activeTopic: topic,
-                                isFromCache: true,
-                                loading: false,
-                                error: null,
-                                fetchingLevels: new Set()
-                            })
-
-                            // Sync mode if different
-                            if (cached.mode && cached.mode !== state.mode) set({ mode: cached.mode as Mode })
-
-                            // Find available level
-                            if (!cached.explanations[activeLevel]) {
-                                const availableLevel = Object.keys(cached.explanations)[0] as Level
-                                if (availableLevel) set({ selectedLevel: availableLevel })
-                            }
-
-                            setTimeout(() => set({ isFromCache: false }), 3000)
-                            return
-                        }
-                    }
-
                     usageGate.recordAction('search', effectiveMode)
+                }
 
-                    // Start search
-                    set({
-                        activeTopic: topic,
-                        loadingMeta: { mode: effectiveMode, level: activeLevel, topic },
-                        loading: true,
-                        isFromCache: false,
-                        error: null
-                    })
+                // Check cache
+                if (!forceRefresh) {
+                    const cached = responseCache.get(topic, effectiveMode)
+                    if (cached) {
+                        console.log('Cache hit from localStorage:', topic, effectiveMode)
+                        set({
+                            result: { topic, explanations: cached.explanations, cached: true, mode: effectiveMode },
+                            activeTopic: topic,
+                            isFromCache: true,
+                            loading: false,
+                            error: null,
+                            fetchingLevels: new Set()
+                        })
 
-                    // Handle regeneration
-                    if (forceRefresh) {
-                        const currentResult = get().result
-                        if (currentResult) {
-                            set({
-                                result: {
-                                    ...currentResult,
-                                    explanations: { ...currentResult.explanations, [activeLevel]: '' }
-                                }
-                            })
+                        // Sync mode if different
+                        if (cached.mode && cached.mode !== state.mode) set({ mode: cached.mode as Mode })
+
+                        // Find available level
+                        if (!cached.explanations[activeLevel]) {
+                            const availableLevel = Object.keys(cached.explanations)[0] as Level
+                            if (availableLevel) set({ selectedLevel: availableLevel })
                         }
 
-                        const randomTemp = Math.random() * (1.1 - 0.95) + 0.95
-                        set({ fetchingLevels: new Set(), failedLevels: new Set() })
-
-                        await state.fetchLevel(topic, activeLevel, effectiveMode, false, {
-                            temperature: randomTemp,
-                            regenerate: true
-                        })
-                        set({ loading: false, loadingMeta: null })
+                        setTimeout(() => set({ isFromCache: false }), 3000)
                         return
                     }
-
-                    // Fresh search
-                    set({
-                        result: { topic, explanations: {}, mode: effectiveMode, cached: false },
-                        fetchingLevels: new Set(),
-                        failedLevels: new Set()
-                    })
-
-                    await state.fetchLevel(topic, activeLevel, effectiveMode, false)
-                    set({ loading: false, loadingMeta: null })
                 }
+
+                // Start search
+                set({
+                    activeTopic: topic,
+                    loadingMeta: { mode: effectiveMode, level: activeLevel, topic },
+                    loading: true,
+                    isFromCache: false,
+                    error: null
+                })
+
+                // Handle regeneration
+                if (forceRefresh) {
+                    const currentResult = get().result
+                    if (currentResult) {
+                        set({
+                            result: {
+                                ...currentResult,
+                                explanations: { ...currentResult.explanations, [activeLevel]: '' }
+                            }
+                        })
+                    }
+
+                    const randomTemp = Math.random() * (1.1 - 0.95) + 0.95
+                    set({ fetchingLevels: new Set(), failedLevels: new Set() })
+
+                    await state.fetchLevel(topic, activeLevel, effectiveMode, false, {
+                        temperature: randomTemp,
+                        regenerate: true
+                    })
+                    set({ loading: false, loadingMeta: null })
+                    return
+                }
+
+                // Fresh search
+                set({
+                    result: { topic, explanations: {}, mode: effectiveMode, cached: false },
+                    fetchingLevels: new Set(),
+                    failedLevels: new Set()
+                })
+
+                await state.fetchLevel(topic, activeLevel, effectiveMode, false)
+                set({ loading: false, loadingMeta: null })
             },
 
             // Reset to initial state
