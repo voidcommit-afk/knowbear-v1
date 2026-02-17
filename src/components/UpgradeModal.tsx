@@ -68,8 +68,8 @@ const UpgradeContent: React.FC<{ onUpgrade: () => void, loading: boolean }> = ({
         // Contextual messaging
         if (paywallContext?.mode === 'ensemble' && paywallContext?.action === 'export_data') {
             return {
-                title: "Unlock PDF Export in Ensemble Mode",
-                body: "Export your ensemble results as PDF with full formatting. Upgrade to Pro for unlimited exports and advanced features.",
+                title: "Unlock Export in Ensemble Mode",
+                body: "Export your ensemble results as Markdown or text. Upgrade to Pro for unlimited exports and advanced features.",
                 icon: <Star size={32} fill="currentColor" />
             };
         }
@@ -85,7 +85,7 @@ const UpgradeContent: React.FC<{ onUpgrade: () => void, loading: boolean }> = ({
 
         return {
             title: "Unlock Premium Features",
-            body: "Exporting only available to Pro users. Upgrade now to unlock PDF/Markdown exports and unlimited usage.",
+            body: "Exporting is available to Pro users. Upgrade now to unlock Markdown/text exports and unlimited usage.",
             icon: <Star size={32} fill="currentColor" />
         };
     };

@@ -101,4 +101,4 @@ async def test_export_invalid_format(app_client, monkeypatch, fake_user):
             "mode": "fast"
         }
     )
-    assert resp.status_code == 400
+    assert resp.status_code == 422

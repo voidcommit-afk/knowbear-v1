@@ -242,12 +242,6 @@ async def health():
     except Exception as e:
         status["google_genai"] = f"✗ {str(e)}"
 
-    try:
-        import fpdf
-        status["fpdf2"] = "✓ installed"
-    except Exception as e:
-        status["fpdf2"] = f"✗ {str(e)}"
-
     status["dodo"] = {
         "payment_link_id": "configured" if settings.dodo_payment_link_id else "missing",
         "webhook_secret": "configured" if settings.dodo_webhook_secret else (

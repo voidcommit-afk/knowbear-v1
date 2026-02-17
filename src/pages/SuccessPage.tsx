@@ -71,7 +71,7 @@ export default function SuccessPage() {
                             <ul className="text-sm text-gray-400 space-y-1 text-left">
                                 <li>✓ Unlimited AI explanations</li>
                                 <li>✓ Access to all premium modes</li>
-                                <li>✓ PDF & Markdown exports</li>
+                                <li>✓ Markdown & text exports</li>
                                 <li>✓ Priority support</li>
                             </ul>
                         </div>

@@ -7,7 +7,7 @@ interface ExportButtonsProps {
 }
 
 export default function ExportButtons({ topic, explanations }: ExportButtonsProps) {
-    const handleExport = async (format: 'txt' | 'json') => {
+    const handleExport = async (format: 'txt' | 'md') => {
         try {
             const req: ExportRequest = { topic, explanations, format }
             const blob = await exportExplanations(req)
@@ -31,10 +31,10 @@ export default function ExportButtons({ topic, explanations }: ExportButtonsProp
                 Export .txt
             </button>
             <button
-                onClick={() => handleExport('json')}
+                onClick={() => handleExport('md')}
                 className="px-4 py-2 bg-dark-600 text-gray-300 rounded-lg hover:bg-dark-500 text-sm transition-colors"
             >
-                Export .json
+                Export .md
             </button>
         </div>
     )
