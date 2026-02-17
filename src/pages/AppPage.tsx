@@ -49,8 +49,7 @@ export default function AppPage() {
 
     // Load pinned topics deferred (after initial render) - don't block page load
     useEffect(() => {
-        responseCache.pruneInvalidModes(['fast', 'ensemble'])
-
+    responseCache.pruneInvalidModes(['fast', 'ensemble'])
         // Log cache stats immediately
         const stats = responseCache.getStats()
         if (stats.count > 0) {
