@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     
     # Dodo Payments Configuration
     dodo_api_key: str = ""
+    dodo_webhook_secret: str = ""
     dodo_webhook_endpoint: str = ""
     dodo_webhook_url: str = ""
     dodo_payment_link_id: str = ""

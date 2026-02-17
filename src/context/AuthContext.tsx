@@ -21,6 +21,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [profile, setProfile] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<AuthError | null>(null);
+    const supabaseConfigured = Boolean(import.meta.env.VITE_SUPABASE_URL) && Boolean(import.meta.env.VITE_SUPABASE_ANON_KEY)
+    const AUTH_TIMEOUT_MS = 3500
 
     const fetchProfile = async (userId: string) => {
         try {
@@ -52,21 +54,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     useEffect(() => {
-        // Check active session on mount
-        supabase.auth.getSession().then(({ data: { session }, error }) => {
-            if (error) {
-                console.error('Error getting session:', error);
-                setError(error);
-            }
-            setSession(session);
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                fetchProfile(session.user.id);
-            }
+        if (!supabaseConfigured) {
+            console.warn('Supabase env missing. Skipping auth initialization.');
             setLoading(false);
-        });
+            return;
+        }
 
-        // Listen for auth changes
+        let mounted = true;
+        const timeoutId = window.setTimeout(() => {
+            if (mounted) {
+                console.warn('Auth initialization timed out. Rendering app without auth.');
+                setLoading(false);
+            }
+        }, AUTH_TIMEOUT_MS);
+
+        const init = async () => {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                if (error) {
+                    console.error('Error getting session:', error);
+                    setError(error);
+                }
+                setSession(session);
+                setUser(session?.user ?? null);
+                if (session?.user) {
+                    fetchProfile(session.user.id);
+                }
+            } catch (err: any) {
+                console.error('Failed to get session:', err);
+                setError(err as AuthError);
+            } finally {
+                if (mounted) {
+                    setLoading(false);
+                    window.clearTimeout(timeoutId);
+                }
+            }
+        };
+
+        init();
+
         const {
             data: { subscription },
         } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -82,12 +108,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         return () => {
+            mounted = false;
+            window.clearTimeout(timeoutId);
             subscription.unsubscribe();
         };
-    }, []);
+    }, [supabaseConfigured]);
 
     const signInWithGoogle = async () => {
         try {
+            if (!supabaseConfigured) {
+                throw new Error('Supabase is not configured');
+            }
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
@@ -103,6 +134,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const signOut = async () => {
         try {
+            if (!supabaseConfigured) {
+                setUser(null);
+                setSession(null);
+                return;
+            }
             await supabase.auth.signOut();
             // Clear local storage items that should reset on logout
             localStorage.removeItem('knowbear_pro_status');

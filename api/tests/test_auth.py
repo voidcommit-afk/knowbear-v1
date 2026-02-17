@@ -1,8 +1,10 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from fastapi import HTTPException
-from auth import verify_token
 from fastapi.security import HTTPAuthorizationCredentials
+
+from auth import verify_token, verify_token_optional
+
 
 @pytest.mark.asyncio
 async def test_verify_token_valid():
@@ -17,10 +19,10 @@ async def test_verify_token_valid():
         assert result["token"] == "valid_token"
         assert result["user"] == {"id": "123", "email": "test@example.com"}
 
+
 @pytest.mark.asyncio
 async def test_verify_token_invalid():
     mock_supabase = MagicMock()
-    # Simulate invalid token response (gotrue might raise exception or return None)
     mock_supabase.auth.get_user.return_value = MagicMock(user=None)
 
     with patch("auth.get_supabase", return_value=mock_supabase):
@@ -28,3 +30,16 @@ async def test_verify_token_invalid():
         with pytest.raises(HTTPException) as excinfo:
             await verify_token(creds)
         assert excinfo.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_verify_token_missing_credentials():
+    with pytest.raises(HTTPException) as excinfo:
+        await verify_token(None)
+    assert excinfo.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_verify_token_optional_missing_returns_none():
+    result = await verify_token_optional(None)
+    assert result is None

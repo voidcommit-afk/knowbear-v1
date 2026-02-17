@@ -1,11 +1,14 @@
 import type { PinnedTopic, QueryRequest, QueryResponse, ExportRequest } from './types'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
+const SUPABASE_CONFIGURED = Boolean(import.meta.env.VITE_SUPABASE_URL) && Boolean(import.meta.env.VITE_SUPABASE_ANON_KEY)
 
 import { supabase } from './lib/supabase'
 
 async function fetchAPI<T>(path: string, options?: RequestInit & { responseType?: 'json' | 'blob' }): Promise<T> {
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { session } } = SUPABASE_CONFIGURED
+        ? await supabase.auth.getSession()
+        : { data: { session: null } as any }
     const headers: HeadersInit = {
         'Content-Type': 'application/json',
         ...options?.headers,
@@ -59,7 +62,9 @@ export async function queryTopicStream(
     onError: (err: any) => void,
     signal?: AbortSignal
 ) {
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { session } } = SUPABASE_CONFIGURED
+        ? await supabase.auth.getSession()
+        : { data: { session: null } as any }
     const headers: HeadersInit = {
         'Content-Type': 'application/json',
     }
@@ -69,6 +74,24 @@ export async function queryTopicStream(
 
     let retries = 0
     const maxRetries = 2
+
+    const fallbackToNonStream = async (reason: string): Promise<void> => {
+        try {
+            console.warn('Streaming unavailable, falling back to non-stream response:', reason)
+            const data = await queryTopic(req)
+            const preferredLevel = req.levels?.[0]
+            const levelKey = preferredLevel && data.explanations?.[preferredLevel]
+                ? preferredLevel
+                : Object.keys(data.explanations || {})[0]
+            const fullText = levelKey ? data.explanations[levelKey] : ''
+            if (fullText) {
+                onChunk(fullText)
+            }
+            onDone(data)
+        } catch (err) {
+            onError(err)
+        }
+    }
 
     const attemptStream = async (): Promise<void> => {
         try {
@@ -86,18 +109,26 @@ export async function queryTopicStream(
             // Validate SSE content type
             const contentType = response.headers.get('content-type')
             if (!contentType?.includes('text/event-stream')) {
-                console.warn('Invalid content-type for SSE:', contentType)
+                return fallbackToNonStream(`Invalid content-type: ${contentType || 'unknown'}`)
             }
 
             const reader = response.body?.getReader()
             const decoder = new TextDecoder()
 
-            if (!reader) throw new Error('ReadableStream not supported')
+            if (!reader) {
+                return fallbackToNonStream('ReadableStream not supported')
+            }
 
             let buffer = ''
+            const READ_TIMEOUT_MS = 20000
 
             while (true) {
-                const { done, value } = await reader.read()
+                const { done, value } = await Promise.race([
+                    reader.read(),
+                    new Promise<ReadableStreamReadResult<Uint8Array>>((_, reject) =>
+                        setTimeout(() => reject(new Error('Stream read timed out')), READ_TIMEOUT_MS)
+                    )
+                ])
                 if (done) break
 
                 buffer += decoder.decode(value, { stream: true })
@@ -141,6 +172,14 @@ export async function queryTopicStream(
                 return
             }
 
+            if (err.message === 'Stream read timed out') {
+                try {
+                    return await fallbackToNonStream(err.message)
+                } catch {
+                    // fall through to error handling
+                }
+            }
+
             // Retry on network errors if not aborted
             if (retries < maxRetries && !signal?.aborted) {
                 retries++
@@ -149,7 +188,7 @@ export async function queryTopicStream(
                 return attemptStream()
             }
 
-            onError(err)
+            await fallbackToNonStream(err.message || 'Stream failed')
         }
     }
 

@@ -8,7 +8,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi_limiter import FastAPILimiter
+try:
+    from fastapi_limiter import FastAPILimiter
+except Exception:
+    FastAPILimiter = None
 from fastapi_limiter.depends import RateLimiter
 from routers import pinned, query, export, history, webhooks, payments
 from services.cache import close_redis, get_redis
@@ -34,9 +37,12 @@ async def lifespan(app: FastAPI):
 
     try:
         await r.ping()
-        await FastAPILimiter.init(r)
-        redis_available = True
-        logger.info("redis_connected_rate_limiter_init")
+        if FastAPILimiter is not None:
+            await FastAPILimiter.init(r)
+            redis_available = True
+            logger.info("redis_connected_rate_limiter_init")
+        else:
+            logger.warning("fastapi_limiter_unavailable_skipping_init")
     except Exception as e:
 
         logger.error("redis_connection_failed", error=str(e))
@@ -211,10 +217,11 @@ app.include_router(payments.router, prefix="/api")
 @app.get("/api/health", tags=["health"])
 async def health():
     """Health check with dependency status."""
+    settings = get_settings()
     status = {
         "status": "ok",
         "timestamp": datetime.utcnow().isoformat(),
-        "environment": get_settings().environment,
+        "environment": settings.environment,
     }
 
 
@@ -224,7 +231,7 @@ async def health():
         status["redis"] = "✓ healthy"
     except Exception as e:
         status["redis"] = f"✗ error: {str(e)}"
-        is_prod = get_settings().environment == "production"
+        is_prod = settings.environment == "production"
         if is_prod:
 
             return JSONResponse(status_code=503, content=status)
@@ -240,6 +247,13 @@ async def health():
         status["fpdf2"] = "✓ installed"
     except Exception as e:
         status["fpdf2"] = f"✗ {str(e)}"
+
+    status["dodo"] = {
+        "payment_link_id": "configured" if settings.dodo_payment_link_id else "missing",
+        "webhook_secret": "configured" if settings.dodo_webhook_secret else (
+            "fallback_api_key" if settings.dodo_api_key else "missing"
+        ),
+    }
 
     return status
 
