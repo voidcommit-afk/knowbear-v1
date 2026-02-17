@@ -43,12 +43,14 @@ export default function AppPage() {
     const fetchLevel = useKnowBearStore(state => state.fetchLevel)
     const abortCurrentStream = useKnowBearStore(state => state.abortCurrentStream)
 
-    const { checkAction, recordAction, showPremiumModal, setShowPremiumModal } = useUsageGate()
+    const { checkAction, recordAction, showPremiumModal, setShowPremiumModal, isPro } = useUsageGate()
     const [pinnedTopics, setPinnedTopics] = useState<PinnedTopic[]>([])
     const [loadingPinned, setLoadingPinned] = useState(true)
 
     // Load pinned topics deferred (after initial render) - don't block page load
     useEffect(() => {
+        responseCache.pruneInvalidModes(['fast', 'ensemble'])
+
         // Log cache stats immediately
         const stats = responseCache.getStats()
         if (stats.count > 0) {
@@ -99,7 +101,7 @@ export default function AppPage() {
     }, [mode, activeTopic, loading, result, loadingMeta])
 
     const handleSearch = async (topic: string, forceRefresh: boolean = false, requestedMode?: any, requestedLevel?: Level) => {
-        await startSearch(topic, forceRefresh, requestedMode, requestedLevel, { checkAction, recordAction })
+        await startSearch(topic, forceRefresh, requestedMode, requestedLevel, { checkAction, recordAction, isPro })
     }
 
     const handleSelectTopic = (topic: string, topicMode: any, level?: Level) => {
@@ -119,7 +121,7 @@ export default function AppPage() {
         setSelectedLevel(level)
 
         if (!currentExplanation && !fetchingLevels.has(level)) {
-            await fetchLevel(result.topic, level, mode, false)
+            await fetchLevel(result.topic, level, mode, isPro)
         }
     }
 
@@ -230,7 +232,6 @@ export default function AppPage() {
                                         level={selectedLevel}
                                         content={result.explanations[selectedLevel] || ''}
                                         streaming={fetchingLevels.has(selectedLevel)}
-                                        mode={mode}
                                     />
                                 </motion.section>
                             ) : (

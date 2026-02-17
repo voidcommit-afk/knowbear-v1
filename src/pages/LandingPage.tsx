@@ -136,7 +136,7 @@ export default function LandingPage() {
                                 Built for <span className="text-cyan-500">Unrivaled</span> Clarity and Clever Insight.
                             </h2>
                             <div className="space-y-6">
-                                <CheckItem title="Technical Depth Mode" description="Graduate-level research reports with full academic structure and automated technical diagrams." />
+                                <CheckItem title="Ensemble Mode" description="High-accuracy synthesis across multiple models for stronger answers." />
                                 <CheckItem title="Relatable Reasoning" description="Clever analogies and a touch of wit that turn daunting concepts into lighthearted, sensory revelations." />
                                 <CheckItem title="Wisdom-Infused Streaming" description="Hyper-fast responses delivered with a final drop of timeless perspective to keep your mind buzzing." />
                             </div>

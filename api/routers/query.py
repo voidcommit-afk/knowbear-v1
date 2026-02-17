@@ -21,7 +21,7 @@ class QueryRequest(BaseModel):
     topic: str = Field(..., min_length=1, max_length=200)
     levels: list[str] = Field(default=FREE_LEVELS)
     premium: bool = False
-    mode: str = "ensemble"  # "fast", "ensemble", "deep_dive", "technical_depth"
+    mode: str = "ensemble"  # "fast", "ensemble"
     bypass_cache: bool = False
     temperature: float = 0.7
     regenerate: bool = False
@@ -40,7 +40,7 @@ async def query_topic(
 ) -> QueryResponse:
     """Generate explanations for a topic."""
     
-    # Gating: Enforce Premium for 'ensemble'/'technical_depth', downgrading to 'fast' if needed (UX decision)
+    # Gating: Enforce Premium for 'ensemble', downgrading to 'fast' if needed (UX decision)
     # Server-Side Verification: We trust the backend's knowledge of the user, not the client request.
     if req.premium:
         # User claims to be premium. Verify.
@@ -52,8 +52,12 @@ async def query_topic(
         if not is_verified_pro:
             req.premium = False # Downgrade if verification fails
             
-    if (req.mode == "ensemble" or req.mode == "technical_depth") and not req.premium:
-        req.mode = "fast"  
+    allowed_modes = {"fast", "ensemble"}
+    if req.mode not in allowed_modes:
+        req.mode = "fast"
+
+    if req.mode == "ensemble" and not req.premium:
+        req.mode = "fast"
 
     try:
         topic = sanitize_topic(req.topic)
@@ -122,7 +126,7 @@ async def query_topic_stream(
 ):
     """Stream explanations for a topic."""
     
-    # Gating: Enforce Premium for 'ensemble'/'technical_depth'
+    # Gating: Enforce Premium for 'ensemble'
     if req.premium:
         is_verified_pro = False
         if auth_data:
@@ -132,7 +136,11 @@ async def query_topic_stream(
         if not is_verified_pro:
             req.premium = False
 
-    if (req.mode == "ensemble" or req.mode == "technical_depth") and not req.premium:
+    allowed_modes = {"fast", "ensemble"}
+    if req.mode not in allowed_modes:
+        req.mode = "fast"
+
+    if req.mode == "ensemble" and not req.premium:
         req.mode = "fast"
 
     try:

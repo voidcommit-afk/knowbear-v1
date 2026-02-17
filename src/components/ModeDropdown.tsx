@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Zap, Sparkles, Terminal, ChevronDown, Lock } from 'lucide-react'
+import { Zap, Sparkles, ChevronDown, Lock } from 'lucide-react'
 import type { Mode } from '../types'
 import { useUsageGate } from '../hooks/useUsageGate'
 
@@ -24,14 +24,6 @@ const MODES: { id: Mode; label: string; description: string; icon: any; color: s
         description: 'High-accuracy synthesis from multiple models.',
         icon: Sparkles,
         color: 'text-purple-400',
-        premium: true
-    },
-    {
-        id: 'technical_depth',
-        label: 'Technical Depth',
-        description: 'Academic-grade research and diagrams.',
-        icon: Terminal,
-        color: 'text-red-400',
         premium: true
     }
 ]

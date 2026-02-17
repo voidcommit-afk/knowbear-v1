@@ -12,6 +12,28 @@ interface CachedResponse {
 
 export const responseCache = {
     /**
+     * Remove cached entries for modes that are no longer supported.
+     */
+    pruneInvalidModes(allowedModes: string[]) {
+        try {
+            const compressed = localStorage.getItem(CACHE_KEY)
+            if (!compressed) return
+
+            const json = LZString.decompressFromUTF16(compressed)
+            if (!json) return
+
+            const cache: CachedResponse[] = JSON.parse(json)
+            const pruned = cache.filter(entry => allowedModes.includes(entry.mode))
+            if (pruned.length === cache.length) return
+
+            const newCompressed = LZString.compressToUTF16(JSON.stringify(pruned))
+            localStorage.setItem(CACHE_KEY, newCompressed)
+            console.log(`Pruned cache entries: ${cache.length - pruned.length}`)
+        } catch (err) {
+            console.warn('Failed to prune cache:', err)
+        }
+    },
+    /**
      * Get cached response for a topic+mode combination
      */
     get(topic: string, mode: string): CachedResponse | null {

@@ -9,12 +9,12 @@ export interface QueryRequest {
     levels?: string[]
     premium?: boolean
     bypass_cache?: boolean
-    mode?: 'fast' | 'ensemble' | 'technical_depth'
+    mode?: 'fast' | 'ensemble'
     temperature?: number
     regenerate?: boolean
 }
 
-export type Mode = 'fast' | 'ensemble' | 'technical_depth'
+export type Mode = 'fast' | 'ensemble'
 
 export interface QueryResponse {
     topic: string
@@ -34,7 +34,7 @@ export interface HistoryItem {
 export interface ExportRequest {
     topic: string
     explanations: Record<string, string>
-    format: 'txt' | 'json' | 'pdf' | 'md'
+    format: 'txt' | 'md'
     premium?: boolean
     mode?: Mode
     visuals?: Record<string, string>

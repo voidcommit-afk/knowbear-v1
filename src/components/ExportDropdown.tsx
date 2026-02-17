@@ -4,20 +4,6 @@ import { useUsageGate } from '../hooks/useUsageGate'
 import { Lock, Download, ChevronDown, Copy, Check } from 'lucide-react'
 import type { Mode } from '../types'
 
-// 2026-01: Disabled PDF/JSON export due to Vercel size limits + poor quality output
-// Plan: Revisit with client-side lightweight export or external service later
-/*
-import { marked } from 'marked'
-import htmlToPdfmake from 'html-to-pdfmake'
-import pdfMake from 'pdfmake/build/pdfmake'
-import pdfFonts from 'pdfmake/build/vfs_fonts'
-
-// Initialize pdfMake fonts
-if (typeof window !== 'undefined') {
-    (pdfMake as any).vfs = pdfFonts.vfs;
-}
-*/
-
 interface ExportDropdownProps {
     topic: string
     explanations: Record<string, string>
@@ -29,7 +15,6 @@ const EXPORT_LABELS: Record<string, string> = {
     md: 'Markdown (.md)',
     txt: 'Text File (.txt)',
     copy: 'Copy Markdown'
-    // 2026-01: PDF and JSON disabled
 }
 
 export default function ExportDropdown({ topic, explanations, compact = false, mode }: ExportDropdownProps) {
@@ -50,7 +35,7 @@ export default function ExportDropdown({ topic, explanations, compact = false, m
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
 
-    const handleExport = async (format: 'txt' | 'json' | 'pdf' | 'md' | 'copy') => {
+    const handleExport = async (format: 'txt' | 'md' | 'copy') => {
         setIsOpen(false)
 
         const { allowed } = checkAction('export_data')
@@ -66,15 +51,9 @@ export default function ExportDropdown({ topic, explanations, compact = false, m
 
         setLoading(true)
         const slug = topic.toLowerCase().replace(/\s+/g, '_').slice(0, 30)
-        const filename = mode === 'technical_depth' ? `${slug}-technical-depth.${format}` : `knowbear-${slug}.${format}`
+        const filename = `knowbear-${slug}.${format}`
 
         try {
-            /* 
-            // 2026-01: PDF Export disabled
-            if (format === 'pdf') {
-                // ... logic removed for bundle size ...
-            } else 
-            */
             if (format === 'md' || format === 'txt') {
                 const req = {
                     topic,
@@ -108,9 +87,8 @@ export default function ExportDropdown({ topic, explanations, compact = false, m
         }
 
         for (const [level, text] of Object.entries(explanations)) {
-            // Only add ELI headers if we are in ensemble/multi-level mode
-            // Technical depth already includes its own headings
-            if (mode !== 'technical_depth' && Object.keys(explanations).length > 1) {
+            // Only add ELI headers if we are in multi-level mode
+            if (Object.keys(explanations).length > 1) {
                 const label = level.replace('eli', 'ELI-').toUpperCase()
                 markdown += `## ${label}\n\n`
             }

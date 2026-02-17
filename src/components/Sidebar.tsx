@@ -209,25 +209,26 @@ export default function Sidebar({ onSelectTopic, refreshTrigger, isOpen, onToggl
                                         <div
                                             key={item.id}
                                             onClick={() => {
+                                                const effectiveMode = item.mode === 'ensemble' ? 'ensemble' : 'fast'
                                                 // Check if response is cached before triggering search
-                                                const cached = responseCache.get(item.topic, item.mode)
+                                                const cached = responseCache.get(item.topic, effectiveMode)
                                                 if (cached) {
-                                                    console.log('✅ History click: using cached response for', item.topic, item.mode)
+                                                    console.log('✅ History click: using cached response for', item.topic, effectiveMode)
                                                 } else {
-                                                    console.log('⏳ History click: cache miss, will fetch', item.topic, item.mode)
+                                                    console.log('⏳ History click: cache miss, will fetch', item.topic, effectiveMode)
                                                 }
-                                                onSelectTopic(item.topic, item.mode, item.levels?.[0] as Level)
+                                                onSelectTopic(item.topic, effectiveMode, item.levels?.[0] as Level)
                                             }}
                                             className="group flex items-center justify-between p-2.5 rounded-lg hover:bg-dark-800 cursor-pointer transition-all border border-transparent hover:border-dark-700"
                                         >
                                             <div className="flex items-center gap-2.5 min-w-0 flex-1">
                                                 <MessageSquare size={14} className="text-gray-500 shrink-0" />
                                                 <span className="text-gray-300 text-sm truncate flex-1">{item.topic}</span>
-                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider shrink-0 whitespace-nowrap ${item.mode === 'technical_depth' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
-                                                    item.mode === 'ensemble' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' :
-                                                        'bg-gray-500/10 text-gray-400 border border-gray-500/20'
+                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider shrink-0 whitespace-nowrap ${item.mode === 'ensemble'
+                                                    ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                                                    : 'bg-gray-500/10 text-gray-400 border border-gray-500/20'
                                                     }`}>
-                                                    {item.mode === 'technical_depth' ? 'Tech' : item.mode === 'ensemble' ? 'Ens' : 'Fast'}
+                                                    {item.mode === 'ensemble' ? 'Ens' : 'Fast'}
                                                 </span>
                                             </div>
                                             <button

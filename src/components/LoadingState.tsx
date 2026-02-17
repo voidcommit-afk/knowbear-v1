@@ -23,9 +23,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({ mode, level, topic }
     useEffect(() => {
         let baseMessage = 'Generating your explanation...'
 
-        if (mode === 'technical_depth') {
-            baseMessage = 'Deep-diving into the technical details...'
-        } else if (level === 'eli5') {
+        if (level === 'eli5') {
             baseMessage = 'Brewing your ELI5 explanation...'
         } else if (level === 'eli10') {
             baseMessage = 'Preparing a simple 10-year-old friendly answer...'
@@ -95,7 +93,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({ mode, level, topic }
                 )}
 
                 <p className="text-xs text-gray-500 max-w-sm mx-auto leading-relaxed border-t border-white/5 pt-4">
-                    {mode === 'technical_depth' ? 'Consulting academic sources and real-time research context.' : 'Synthesizing knowledge for the perfect explanation.'}
+                    Synthesizing knowledge for the perfect explanation.
                 </p>
             </div>
 

@@ -24,7 +24,7 @@ router = APIRouter(tags=["export"])
 class ExportRequest(BaseModel):
     topic: str = Field(..., min_length=1)
     explanations: dict[str, str]
-    format: str = Field(default="txt", pattern="^(txt|json|pdf|md)$")
+    format: str = Field(default="txt", pattern="^(txt|md)$")
     premium: bool = False
     mode: str = "fast"
     visuals: Optional[dict[str, str]] = None
@@ -45,7 +45,7 @@ class StyledPDF(FPDF, HTMLMixin):
         if self.page_no() > 1:
             self.set_font("helvetica", "I", 8)
             self.set_text_color(150, 150, 150)
-            self.cell(0, 10, f"KnowBear Technical Depth: {self.topic_name}", align="R")
+            self.cell(0, 10, f"KnowBear Export: {self.topic_name}", align="R")
             self.ln(10)
 
     def footer(self):
@@ -73,20 +73,14 @@ async def export_explanations(req: ExportRequest, auth_data: dict = Depends(veri
     if not req.premium:
         raise HTTPException(status_code=403, detail="Exporting is a premium feature. Please upgrade to use this functionality.")
 
+    allowed_modes = {"fast", "ensemble"}
+    if req.mode not in allowed_modes:
+        req.mode = "fast"
+
     # Identify levels to include based on mode
-    is_technical = req.mode == "technical_depth"
-    
-    if is_technical:
-        target_levels = {"technical_depth"}
-        if "technical_depth" not in req.explanations:
-            if req.explanations:
-                target_levels = set(req.explanations.keys())
-            else:
-                target_levels = {"technical_depth"}
-    else:
-        target_levels = set(FREE_LEVELS)
-        if is_verified_pro:
-            target_levels.update(PREMIUM_LEVELS)
+    target_levels = set(FREE_LEVELS)
+    if is_verified_pro:
+        target_levels.update(PREMIUM_LEVELS)
     
     current_levels = set(req.explanations.keys())
     missing_levels = list(target_levels - current_levels)
@@ -102,32 +96,26 @@ async def export_explanations(req: ExportRequest, auth_data: dict = Depends(veri
                 req.explanations[lvl] = f"Error generating content: {str(result)}"
     
     ordered_explanations = {}
-    if is_technical:
-        if "technical_depth" in req.explanations:
-            ordered_explanations["technical_depth"] = req.explanations["technical_depth"]
-        else:
-            ordered_explanations = req.explanations
-    else:
-        for lvl in FREE_LEVELS:
-            if lvl in req.explanations:
+    for lvl in FREE_LEVELS:
+        if lvl in req.explanations:
+            ordered_explanations[lvl] = req.explanations[lvl]
+    if is_verified_pro:
+        for lvl in PREMIUM_LEVELS:
+             if lvl in req.explanations:
                 ordered_explanations[lvl] = req.explanations[lvl]
-        if is_verified_pro:
-            for lvl in PREMIUM_LEVELS:
-                 if lvl in req.explanations:
-                    ordered_explanations[lvl] = req.explanations[lvl]
                 
     req.explanations = ordered_explanations
 
     slug = req.topic.lower().replace(" ", "-")[:30]
-    filename_base = f"{slug}-technical-depth" if is_technical else f"knowbear-{slug}"
+    filename_base = f"knowbear-{slug}"
 
     if req.format == "txt":
         content = f"# {req.topic}\n\n"
         if len(req.explanations) > 1:
             content += "---\n\n"
         for level, text in req.explanations.items():
-            if not is_technical and len(req.explanations) > 1:
-                lvl_name = "TECHNICAL DEPTH" if level == "technical_depth" else level.replace('eli', 'ELI-').upper()
+            if len(req.explanations) > 1:
+                lvl_name = level.replace('eli', 'ELI-').upper()
                 content += f"## {lvl_name}\n\n"
             content += f"{text.strip()}\n\n"
             if len(req.explanations) > 1:
@@ -142,7 +130,7 @@ async def export_explanations(req: ExportRequest, auth_data: dict = Depends(veri
         if len(req.explanations) > 1:
             content += "---\n\n"
         for level, text in req.explanations.items():
-            if not is_technical and len(req.explanations) > 1:
+            if len(req.explanations) > 1:
                 lvl_name = level.replace('eli', 'ELI-').upper()
                 content += f"## {lvl_name}\n\n"
             content += f"{text.strip()}\n\n"
@@ -153,18 +141,4 @@ async def export_explanations(req: ExportRequest, auth_data: dict = Depends(veri
             media_type="text/markdown",
             headers={"Content-Disposition": f"attachment; filename={filename_base}.md"},
         )
-    # 2026-01: JSON and PDF temporarily disabled
-    # elif req.format == "json":
-    #     data = {"topic": req.topic, "explanations": req.explanations}
-    #     return StreamingResponse(
-    #         io.BytesIO(json.dumps(data, indent=2).encode()),
-    #         media_type="application/json",
-    #         headers={"Content-Disposition": f"attachment; filename={filename_base}.json"},
-    #     )
-    # elif req.format == "pdf":
-    #     try:
-    #         ... PDF logic ...
-    #     except Exception as e:
-    #         ...
-            
     raise HTTPException(400, "Requested format is currently disabled or invalid")

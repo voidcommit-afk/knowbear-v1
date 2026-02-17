@@ -13,7 +13,7 @@ export const ModeProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [searchParams, setSearchParams] = useSearchParams()
     const [mode, setModeState] = useState<Mode>(() => {
         const urlMode = searchParams.get('mode') as Mode
-        if (['fast', 'ensemble', 'technical_depth'].includes(urlMode)) {
+        if (['fast', 'ensemble'].includes(urlMode)) {
             return urlMode
         }
         return 'fast'
@@ -31,7 +31,7 @@ export const ModeProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Sync state with URL changes (e.g. back button)
     useEffect(() => {
         const urlMode = searchParams.get('mode') as Mode
-        if (urlMode && ['fast', 'ensemble', 'technical_depth'].includes(urlMode) && urlMode !== mode) {
+        if (urlMode && ['fast', 'ensemble'].includes(urlMode) && urlMode !== mode) {
             setModeState(urlMode)
         }
     }, [searchParams, mode])

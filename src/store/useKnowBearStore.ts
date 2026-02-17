@@ -179,7 +179,7 @@ export const useKnowBearStore = create<KnowBearState>()(
                 state.abortCurrentStream()
 
                 const activeMode = requestedMode || state.mode
-                const activeLevel = requestedLevel || (activeMode === 'technical_depth' ? 'eli5' : state.selectedLevel)
+                const activeLevel = requestedLevel || state.selectedLevel
 
                 // Clear state for fresh feel
                 if (!forceRefresh) {
@@ -192,12 +192,13 @@ export const useKnowBearStore = create<KnowBearState>()(
 
                 // Usage gate check (optional, graceful degradation)
                 let effectiveMode = activeMode
+                const isPro = Boolean(usageGate?.isPro)
                 if (usageGate) {
                     const { allowed: searchAllowed, downgraded } = usageGate.checkAction('search', activeMode)
                     if (!searchAllowed) return
 
                     // Premium mode gating
-                    if (activeMode === 'ensemble' || activeMode === 'technical_depth') {
+                    if (activeMode === 'ensemble') {
                         const { allowed } = usageGate.checkAction('premium_mode')
                         if (!allowed) return
                     }
@@ -262,7 +263,7 @@ export const useKnowBearStore = create<KnowBearState>()(
                     const randomTemp = Math.random() * (1.1 - 0.95) + 0.95
                     set({ fetchingLevels: new Set(), failedLevels: new Set() })
 
-                    await get().fetchLevel(topic, activeLevel, effectiveMode, false, {
+                    await get().fetchLevel(topic, activeLevel, effectiveMode, isPro, {
                         temperature: randomTemp,
                         regenerate: true
                     })
@@ -278,7 +279,7 @@ export const useKnowBearStore = create<KnowBearState>()(
                 })
 
                 console.log('📝 Result initialized, calling fetchLevel')
-                await get().fetchLevel(topic, activeLevel, effectiveMode, false)
+                await get().fetchLevel(topic, activeLevel, effectiveMode, isPro)
                 set({ loading: false, loadingMeta: null })
             },
 

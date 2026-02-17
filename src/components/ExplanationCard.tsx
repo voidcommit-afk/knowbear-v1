@@ -1,4 +1,4 @@
-import type { Level, Mode } from '../types'
+import type { Level } from '../types'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Mermaid from './Mermaid'
@@ -7,11 +7,10 @@ import SafeImage from './SafeImage'
 interface ExplanationCardProps {
     level: Level
     content: string
-    mode?: Mode
     streaming?: boolean
 }
 
-const LEVEL_COLORS: Record<Level | 'technical_depth', string> = {
+const LEVEL_COLORS: Record<Level, string> = {
     eli5: 'border-l-green-500',
     eli10: 'border-l-teal-500',
     eli12: 'border-l-cyan-500',
@@ -20,7 +19,6 @@ const LEVEL_COLORS: Record<Level | 'technical_depth', string> = {
     classic60: 'border-l-yellow-500',
     gentle70: 'border-l-indigo-500',
     warm80: 'border-l-rose-500',
-    technical_depth: 'border-l-red-500',
 }
 
 const LEVEL_NAMES: Record<Level, string> = {
@@ -34,21 +32,15 @@ const LEVEL_NAMES: Record<Level, string> = {
     warm80: 'Warm Mode',
 }
 
-export default function ExplanationCard({ level, content, mode, streaming }: ExplanationCardProps) {
-    const isTechnical = mode === 'technical_depth'
-    const borderColor = isTechnical ? LEVEL_COLORS.technical_depth : LEVEL_COLORS[level]
-
-    // Strip numeric citations like [1], [2], [1, 2] in technical depth mode
-    const processedContent = isTechnical
-        ? content.replace(/\[\d+(?:,\s*\d+)*\]/g, '')
-        : content
+export default function ExplanationCard({ level, content, streaming }: ExplanationCardProps) {
+    const borderColor = LEVEL_COLORS[level]
 
     return (
         <div
             className={`bg-dark-700 border-l-4 ${borderColor} rounded-lg p-6 transition-all shadow-2xl relative`}
         >
             <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4 border-b border-white/5 pb-2 flex items-center gap-2">
-                {!isTechnical && LEVEL_NAMES[level]}
+                {LEVEL_NAMES[level]}
             </h3>
 
             <div className="prose prose-invert max-w-none text-gray-200 leading-relaxed prose-headings:text-white prose-a:text-cyan-400 hover:prose-a:text-cyan-300 prose-code:text-cyan-300 prose-img:rounded-xl prose-hr:border-white/5">
@@ -89,7 +81,7 @@ export default function ExplanationCard({ level, content, mode, streaming }: Exp
                         }
                     }}
                 >
-                    {processedContent}
+                    {content}
                 </ReactMarkdown>
                 {streaming && (
                     <span className="inline-block w-2 h-5 ml-1 bg-cyan-500 animate-[pulse_0.8s_infinite] vertical-middle" style={{ verticalAlign: 'middle' }}></span>
