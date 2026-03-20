@@ -12,11 +12,40 @@ This repository is the deprecated **KnowBear v1** codebase, kept for historical 
 ## Features
 
 - **Layered Explanations**: ELI5 to ELI15, meme-style, technical deep dives
-- **Intelligent Routing**: Optimized model selection (DeepSeek-R1 for logic, Qwen for code, Gemini for visual/context)
+- **Mode-Based Routing**: `fast` uses a single low-latency model, `ensemble` runs multi-model generation with judge-based selection
 - **Multi-Model Ensemble**: Parallel generation with judge-based voting
 - **Redis Caching**: Smart caching for fast repeat queries
 - **Export Options**: Download as .txt, .json, or .pdf
 - **Dark Theme UI**: Minimalist, space-themed design
+
+## Model Routing (Actual v1)
+
+### Query Modes (`/api/query`)
+
+- `fast` mode:
+	- Uses one Groq model: `llama-3.1-8b-instant`
+	- Lower latency path (no judge)
+
+- `ensemble` mode:
+	- Runs these Groq models in parallel:
+		- `llama-3.1-8b-instant`
+		- `llama-3.3-70b-versatile`
+		- `llama-3.1-70b-versatile`
+		- `deepseek-r1-distill-llama-70b`
+		- `mixtral-8x7b-32768`
+	- Uses `llama-3.3-70b-versatile` as a judge to select the best response
+	- Server enforces premium gating for `ensemble`
+
+### Fallback Behavior
+
+- If Groq fails, the backend fallback chain is:
+	1. Hugging Face Inference API (`microsoft/Phi-3-mini-4k-instruct`) when `HF_TOKEN` is configured
+	2. Google Gemini (`gemini-2.0-flash`) when `GEMINI_API_KEY` is configured
+
+### Streaming Notes (`/api/query/stream`)
+
+- Streaming path uses `llama-3.1-8b-instant` in current implementation.
+- Response chunks are adaptively buffered/flushed for smoother UX, with truncation signaling when token limits are hit.
 
 ## Architecture
 
@@ -47,5 +76,5 @@ KnowBear/
 
 - **Frontend**: React, Vite, TailwindCSS, Framer Motion
 - **Backend**: FastAPI, Pydantic, Structlog
-- **AI/LLM**: Groq (Llama, DeepSeek, Qwen), Google Gemini
+- **AI/LLM**: Groq (Llama, DeepSeek, Mixtral), Google Gemini, Hugging Face Inference API
 - **Database/Cache**: Redis (Upstash/Cloud), Supabase (Auth)
