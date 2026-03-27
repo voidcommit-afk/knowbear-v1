@@ -18,3 +18,4 @@ render.yaml
 tsconfig.tsbuildinfo
 tsconfig.node.tsbuildinfo
 vite.config.d.ts
+api/.pytest_cache
