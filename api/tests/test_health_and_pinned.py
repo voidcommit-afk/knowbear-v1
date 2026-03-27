@@ -35,7 +35,8 @@ async def test_health_redis_failure_in_prod(app_client, monkeypatch, test_settin
 
     monkeypatch.setattr(main_app, "get_redis", fake_get_redis)
     resp = app_client.get("/api/health")
-    assert resp.status_code == 503
+    assert resp.status_code == 200
+    assert "unavailable" in resp.json()["redis"]
     test_settings.environment = old_env
 
 

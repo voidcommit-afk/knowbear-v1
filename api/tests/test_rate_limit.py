@@ -1,33 +1,29 @@
 import pytest
 
-import main as main_app
+import routers.query as query_module
 
 
 @pytest.mark.asyncio
-async def test_conditional_rate_limit_no_redis(monkeypatch):
-    main_app.redis_available = False
+async def test_rate_limit_5_per_hour_per_ip(app_client, monkeypatch):
+    async def fake_cache_get(_key):
+        return None
 
-    async def fake_rate_limiter(*_args, **_kwargs):
-        raise AssertionError("RateLimiter should not be called")
+    async def fake_cache_set(_key, _value):
+        return True
 
-    monkeypatch.setattr(main_app, "RateLimiter", fake_rate_limiter)
-    await main_app.conditional_rate_limit(object(), object())
+    async def fake_generate(_topic, _level, _premium, _mode):
+        return "ok"
 
+    monkeypatch.setattr(query_module, "cache_get", fake_cache_get)
+    monkeypatch.setattr(query_module, "cache_set", fake_cache_set)
+    monkeypatch.setattr(query_module, "ensemble_generate", fake_generate)
 
-@pytest.mark.asyncio
-async def test_conditional_rate_limit_calls_limiter(monkeypatch, test_settings):
-    main_app.redis_available = True
-    test_settings.environment = "production"
+    headers = {"x-forwarded-for": "1.2.3.4"}
+    for _ in range(5):
+        resp = app_client.post("/api/query", json={"topic": "Rate", "levels": ["eli5"], "mode": "fast"}, headers=headers)
+        assert resp.status_code == 200
 
-    calls = {"count": 0}
-
-    def fake_rate_limiter(*_args, **_kwargs):
-        async def _inner(_req, _resp):
-            calls["count"] += 1
-        return _inner
-
-    monkeypatch.setattr(main_app, "RateLimiter", fake_rate_limiter)
-    monkeypatch.setattr(main_app, "get_settings", lambda: test_settings)
-
-    await main_app.conditional_rate_limit(object(), object())
-    assert calls["count"] == 1
+    blocked = app_client.post("/api/query", json={"topic": "Rate", "levels": ["eli5"], "mode": "fast"}, headers=headers)
+    assert blocked.status_code == 429
+    body = blocked.json()
+    assert body["detail"]["error"] == "Rate limit exceeded"

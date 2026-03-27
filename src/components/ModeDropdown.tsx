@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
-import { Zap, Sparkles, ChevronDown, Lock } from 'lucide-react'
+import { Zap, Sparkles, ChevronDown } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import type { Mode } from '../types'
-import { useUsageGate } from '../hooks/useUsageGate'
 
 interface ModeDropdownProps {
     selected: Mode
@@ -9,14 +9,13 @@ interface ModeDropdownProps {
     disabled?: boolean
 }
 
-const MODES: { id: Mode; label: string; description: string; icon: any; color: string; premium: boolean }[] = [
+const MODES: { id: Mode; label: string; description: string; icon: LucideIcon; color: string }[] = [
     {
         id: 'fast',
         label: 'Fast',
         description: 'Speed-optimized, standard answers.',
         icon: Zap,
         color: 'text-cyan-400',
-        premium: false
     },
     {
         id: 'ensemble',
@@ -24,16 +23,14 @@ const MODES: { id: Mode; label: string; description: string; icon: any; color: s
         description: 'High-accuracy synthesis from multiple models.',
         icon: Sparkles,
         color: 'text-purple-400',
-        premium: true
-    }
+    },
 ]
 
 export default function ModeDropdown({ selected, onChange, disabled }: ModeDropdownProps) {
     const [isOpen, setIsOpen] = useState(false)
     const dropdownRef = useRef<HTMLDivElement>(null)
-    const { isPro, checkAction } = useUsageGate()
 
-    const selectedMode = MODES.find(m => m.id === selected) || MODES[0]
+    const selectedMode = MODES.find((m) => m.id === selected) || MODES[0]
 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
@@ -46,18 +43,7 @@ export default function ModeDropdown({ selected, onChange, disabled }: ModeDropd
     }, [])
 
     const handleSelect = (modeId: Mode) => {
-        if (modeId === selected) {
-            setIsOpen(false)
-            return
-        }
-
-        const mode = MODES.find(m => m.id === modeId)
-        if (mode?.premium) {
-            const { allowed } = checkAction('premium_mode', modeId)
-            if (!allowed) return // Modal handled by hook
-        }
-
-        onChange(modeId)
+        if (modeId !== selected) onChange(modeId)
         setIsOpen(false)
     }
 
@@ -67,24 +53,12 @@ export default function ModeDropdown({ selected, onChange, disabled }: ModeDropd
                 type="button"
                 onClick={() => !disabled && setIsOpen(!isOpen)}
                 disabled={disabled}
-                className={`
-                    flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300
-                    bg-dark-800/80 backdrop-blur-md border border-dark-600 
-                    hover:border-dark-400 hover:bg-dark-700
-                    active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
-                    focus:outline-none focus:ring-2 focus:ring-cyan-500/50
-                    group relative overflow-hidden
-                `}
+                className="flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 bg-dark-800/80 backdrop-blur-md border border-dark-600 hover:border-dark-400 hover:bg-dark-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-cyan-500/50 group relative overflow-hidden"
             >
-                {/* Shiny effect on hover */}
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-shimmer" />
-
                 <selectedMode.icon className={`w-4 h-4 ${selectedMode.color}`} />
                 <div className="flex flex-col items-start">
-                    <span className="text-sm font-bold text-white leading-none flex items-center gap-1.5">
-                        {selectedMode.label}
-                        {selectedMode.premium && !isPro && <Lock className="w-2.5 h-2.5 text-yellow-500/80" />}
-                    </span>
+                    <span className="text-sm font-bold text-white leading-none">{selectedMode.label}</span>
                 </div>
                 <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -96,30 +70,14 @@ export default function ModeDropdown({ selected, onChange, disabled }: ModeDropd
                             <button
                                 key={m.id}
                                 onClick={() => handleSelect(m.id)}
-                                className={`
-                                    w-full flex items-start gap-3 p-3 rounded-xl transition-all group
-                                    ${selected === m.id
-                                        ? 'bg-cyan-500/10 border border-cyan-500/20'
-                                        : 'hover:bg-white/5 border border-transparent'}
-                                `}
+                                className={`w-full flex items-start gap-3 p-3 rounded-xl transition-all group ${selected === m.id ? 'bg-cyan-500/10 border border-cyan-500/20' : 'hover:bg-white/5 border border-transparent'}`}
                             >
                                 <div className={`p-2 rounded-lg ${selected === m.id ? 'bg-cyan-500/20' : 'bg-dark-700'} group-hover:scale-110 transition-transform`}>
                                     <m.icon className={`w-4 h-4 ${m.color}`} />
                                 </div>
                                 <div className="flex flex-col items-start text-left">
-                                    <div className="flex items-center gap-2">
-                                        <span className={`text-sm font-bold ${selected === m.id ? 'text-cyan-400' : 'text-white'}`}>
-                                            {m.label}
-                                        </span>
-                                        {m.premium && !isPro && (
-                                            <span className="bg-yellow-500/10 text-yellow-500 text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider flex items-center gap-1">
-                                                <Lock className="w-2.5 h-2.5" /> PRO
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p className="text-xs text-gray-400 mt-0.5 leading-snug">
-                                        {m.description}
-                                    </p>
+                                    <span className={`text-sm font-bold ${selected === m.id ? 'text-cyan-400' : 'text-white'}`}>{m.label}</span>
+                                    <p className="text-xs text-gray-400 mt-0.5 leading-snug">{m.description}</p>
                                 </div>
                             </button>
                         ))}

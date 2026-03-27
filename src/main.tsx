@@ -1,8 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import { AuthProvider } from './context/AuthContext'
-import { UsageGateProvider } from './context/UsageGateContext'
 import { ModeProvider } from './context/ModeContext'
 import './index.css'
 import App from './App.tsx'
@@ -16,13 +14,9 @@ if (!root) {
 createRoot(root).render(
     <StrictMode>
         <BrowserRouter>
-            <AuthProvider>
-                <UsageGateProvider>
-                    <ModeProvider>
-                        <App />
-                    </ModeProvider>
-                </UsageGateProvider>
-            </AuthProvider>
+            <ModeProvider>
+                <App />
+            </ModeProvider>
         </BrowserRouter>
     </StrictMode>
 )

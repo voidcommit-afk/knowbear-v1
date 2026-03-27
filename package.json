@@ -15,7 +15,6 @@
         "test": "vitest"
     },
     "dependencies": {
-        "@supabase/supabase-js": "^2.91.0",
         "framer-motion": "^12.28.1",
         "html-to-pdfmake": "^2.5.32",
         "html2canvas": "^1.4.1",

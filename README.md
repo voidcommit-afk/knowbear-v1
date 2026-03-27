@@ -1,80 +1,147 @@
-# KnowBear Knowledge Engine
+# KnowBear (Stateless Demo)
 
-AI-powered layered explanations for any topic. Built with FastAPI (Python) and React (TypeScript).
+KnowBear is a FastAPI + React app that generates layered explanations for a topic using LLMs.
 
-## Status
+This repository is currently configured as a **stateless, no-auth demo**:
 
-This repository is the deprecated **KnowBear v1** codebase, kept for historical reference.
-
-- Active repository (v2): https://github.com/voidcommit-afk/know-bear
-- This repo (v1): legacy snapshot, no active feature development
+- no database models, migrations, or user persistence
+- no login/session/token flows
+- no pro/subscription/role gating
+- server-side rate limiting by IP (`5 requests/hour`) on query endpoints
 
 ## Features
 
-- **Layered Explanations**: ELI5 to ELI15, meme-style, technical deep dives
-- **Mode-Based Routing**: `fast` uses a single low-latency model, `ensemble` runs multi-model generation with judge-based selection
-- **Multi-Model Ensemble**: Parallel generation with judge-based voting
-- **Redis Caching**: Smart caching for fast repeat queries
-- **Export Options**: Download as .txt, .json, or .pdf
-- **Dark Theme UI**: Minimalist, space-themed design
+- Layered explanations: `eli5`, `eli10`, `eli12`, `eli15`, `meme`, `classic60`, `gentle70`, `warm80`
+- Two generation modes:
+  - `fast`: single-model, lower latency
+  - `ensemble`: multi-model synthesis with judge selection
+- Streaming responses via SSE (`/api/query/stream`)
+- Export generated content as `.txt` or `.md`
+- Redis-backed response cache (best-effort; app still runs if Redis is unavailable)
+- Clean no-auth frontend flow: app loads directly at `/`
 
-## Model Routing (Actual v1)
+## Tech Stack
 
-### Query Modes (`/api/query`)
+- Frontend: React, Vite, TypeScript, Tailwind, Framer Motion, Zustand
+- Backend: FastAPI, Pydantic, Structlog
+- LLM routing: Groq + Gemini fallback paths
+- Cache: Redis
 
-- `fast` mode:
-	- Uses one Groq model: `llama-3.1-8b-instant`
-	- Lower latency path (no judge)
+## Repository Structure
 
-- `ensemble` mode:
-	- Runs these Groq models in parallel:
-		- `llama-3.1-8b-instant`
-		- `llama-3.3-70b-versatile`
-		- `llama-3.1-70b-versatile`
-		- `deepseek-r1-distill-llama-70b`
-		- `mixtral-8x7b-32768`
-	- Uses `llama-3.3-70b-versatile` as a judge to select the best response
-	- Server enforces premium gating for `ensemble`
-
-### Fallback Behavior
-
-- If Groq fails, the backend fallback chain is:
-	1. Hugging Face Inference API (`microsoft/Phi-3-mini-4k-instruct`) when `HF_TOKEN` is configured
-	2. Google Gemini (`gemini-2.0-flash`) when `GEMINI_API_KEY` is configured
-
-### Streaming Notes (`/api/query/stream`)
-
-- Streaming path uses `llama-3.1-8b-instant` in current implementation.
-- Response chunks are adaptively buffered/flushed for smoother UX, with truncation signaling when token limits are hit.
-
-## Architecture
-
-```
-KnowBear/
-├── api/               # FastAPI backend (Serverless compatible)
-│   ├── main.py        # App entry point
-│   ├── routers/       # API endpoints
-│   └── services/      # Business logic (Routing, Inference, Cache)
-├── src/               # React frontend
-│   ├── components/    # Reusable UI components
-│   ├── pages/         # Page layouts
-│   └── hooks/         # Custom React hooks
-├── public/            # Static assets
-└── vercel.json        # Deployment configuration
+```text
+.
+├── main.py                  # Root ASGI shim (supports `uvicorn main:app`)
+├── api/
+│   ├── main.py              # FastAPI app setup and router wiring
+│   ├── rate_limit.py        # In-memory IP limiter (5/hour)
+│   ├── routers/
+│   │   ├── pinned.py        # GET /api/pinned
+│   │   ├── query.py         # POST /api/query, POST /api/query/stream
+│   │   └── export.py        # POST /api/export
+│   ├── services/            # inference/model/cache/search services
+│   ├── config.py            # environment settings
+│   └── tests/               # backend tests
+├── src/
+│   ├── api.ts               # frontend API client
+│   ├── pages/AppPage.tsx    # primary UI page
+│   ├── components/          # UI components
+│   ├── store/               # Zustand app state
+│   └── types.ts             # shared frontend types
+├── public/
+├── package.json
+└── .env.example
 ```
 
 ## API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/pinned` | GET | Curated popular topics |
-| `/api/query` | POST | Generate layered explanations |
-| `/api/export` | POST | Export results as file |
-| `/api/health` | GET | System health check (Redis/Dependencies) |
+- `GET /api/pinned`
+  - Returns curated pinned topics.
+- `POST /api/query`
+  - Generates one or more explanation levels.
+- `POST /api/query/stream`
+  - Streams explanation chunks (SSE).
+- `POST /api/export`
+  - Returns exported explanation file (`txt` or `md`).
+- `GET /api/health`
+  - Health + dependency status.
 
-## Tech Stack
+## Rate Limiting
 
-- **Frontend**: React, Vite, TailwindCSS, Framer Motion
-- **Backend**: FastAPI, Pydantic, Structlog
-- **AI/LLM**: Groq (Llama, DeepSeek, Mixtral), Google Gemini, Hugging Face Inference API
-- **Database/Cache**: Redis (Upstash/Cloud), Supabase (Auth)
+Rate limiting is enforced server-side on query routes by client IP:
+
+- limit: **5 requests per hour per IP**
+- exceeded response: **HTTP 429** with retry metadata in `detail`
+
+IP resolution order:
+
+1. `x-forwarded-for` (first IP)
+2. `request.client.host`
+
+## Local Setup
+
+### 1) Install frontend dependencies
+
+```bash
+npm install
+```
+
+### 2) Install backend dependencies
+
+Use your preferred environment manager, then install:
+
+```bash
+pip install -r api/requirements.txt
+```
+
+### 3) Configure environment
+
+Copy `.env.example` to `.env` and set values as needed.
+
+Minimum useful keys:
+
+- `GROQ_API_KEY`
+- `GEMINI_API_KEY` (optional fallback path)
+- `REDIS_URL` (optional but recommended for caching)
+- `VITE_API_URL`
+
+## Running the App
+
+### Backend (from repo root)
+
+```bash
+python3 -m uvicorn main:app --reload
+```
+
+Alternative:
+
+```bash
+python3 -m uvicorn api.main:app --reload
+```
+
+### Frontend
+
+```bash
+npm run dev
+```
+
+## Validation Commands
+
+```bash
+npm run type-check
+npm run build
+npm test -- --run
+```
+
+Backend quick sanity checks:
+
+```bash
+python3 -m compileall -q api
+python3 -c "import main; print(bool(main.app))"
+```
+
+## Notes
+
+- This demo is intentionally stateless and unauthenticated.
+- In-memory rate limiter state resets on process restart.
+- For multi-instance production deployments, move rate limiting to a shared store.

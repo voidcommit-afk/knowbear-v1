@@ -7,7 +7,6 @@ export interface PinnedTopic {
 export interface QueryRequest {
     topic: string
     levels?: string[]
-    premium?: boolean
     bypass_cache?: boolean
     mode?: 'fast' | 'ensemble'
     temperature?: number
@@ -23,23 +22,14 @@ export interface QueryResponse {
     mode?: Mode
 }
 
-export interface HistoryItem {
-    id: string
-    topic: string
-    levels: string[]
-    mode: Mode
-    created_at: string
-}
-
 export interface ExportRequest {
     topic: string
     explanations: Record<string, string>
     format: 'txt' | 'md'
-    premium?: boolean
     mode?: Mode
-    visuals?: Record<string, string>
 }
 
 export const FREE_LEVELS = ['eli5', 'eli10', 'eli12', 'eli15', 'meme'] as const
 export const PREMIUM_LEVELS = ['classic60', 'gentle70', 'warm80'] as const
-export type Level = (typeof FREE_LEVELS)[number] | (typeof PREMIUM_LEVELS)[number]
+export const ALL_LEVELS = [...FREE_LEVELS, ...PREMIUM_LEVELS] as const
+export type Level = (typeof ALL_LEVELS)[number]
