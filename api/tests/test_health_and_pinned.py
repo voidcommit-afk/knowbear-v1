@@ -14,11 +14,13 @@ async def test_health_ok(app_client):
 @pytest.mark.asyncio
 async def test_health_in_prod(app_client, test_settings):
     old_env = test_settings.environment
-    test_settings.environment = "production"
-    resp = app_client.get("/api/health")
-    assert resp.status_code == 200
-    assert resp.json()["environment"] == "production"
-    test_settings.environment = old_env
+    try:
+        test_settings.environment = "production"
+        resp = app_client.get("/api/health")
+        assert resp.status_code == 200
+        assert resp.json()["environment"] == "production"
+    finally:
+        test_settings.environment = old_env
 
 
 @pytest.mark.asyncio

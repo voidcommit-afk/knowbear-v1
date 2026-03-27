@@ -93,18 +93,21 @@ export const useKnowBearStore = create<KnowBearState>()((set, get) => ({
                 },
                 (chunk: string) => {
                     streamedText += chunk
-                    const currentResult = get().result
-                    if (currentResult) {
-                        set({
-                            result: {
-                                ...currentResult,
-                                explanations: {
-                                    ...currentResult.explanations,
-                                    [level]: streamedText,
-                                },
-                            },
-                        })
+                    const currentState = get()
+                    if (!currentState.result) {
+                        controller.abort()
+                        return
                     }
+
+                    set({
+                        result: {
+                            ...currentState.result,
+                            explanations: {
+                                ...currentState.result.explanations,
+                                [level]: streamedText,
+                            },
+                        },
+                    })
                 },
                 () => undefined,
                 (error: unknown) => {
@@ -159,6 +162,10 @@ export const useKnowBearStore = create<KnowBearState>()((set, get) => ({
                         ...currentResult,
                         explanations: { ...currentResult.explanations, [activeLevel]: '' },
                     },
+                })
+            } else {
+                set({
+                    result: { topic, explanations: {}, mode: effectiveMode },
                 })
             }
 
