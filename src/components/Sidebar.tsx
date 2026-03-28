@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Github } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 interface SidebarProps {
@@ -63,11 +63,18 @@ export default function Sidebar({ isOpen, onToggle, onSelectTopic }: SidebarProp
                     ) : null}
                 </nav>
 
-                {isOpen && (
-                    <div className="p-4 border-t border-dark-700">
-                        <span className="text-[10px] text-gray-600 font-mono">Demo Mode</span>
-                    </div>
-                )}
+                <div className={`p-4 border-t border-dark-700 flex items-center ${isOpen ? 'justify-between' : 'justify-center'}`}>
+                    {isOpen && <span className="text-[10px] text-gray-600 font-mono">Demo Mode</span>}
+                    <a
+                        href="https://github.com/voidcommit-afk/KnowBear-v1"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-gray-400 hover:text-cyan-400 transition-colors"
+                        aria-label="GitHub repository"
+                    >
+                        <Github className="w-5 h-5" />
+                    </a>
+                </div>
             </aside>
         </>
     )

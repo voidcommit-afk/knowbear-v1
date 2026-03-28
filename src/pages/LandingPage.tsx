@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { ArrowRight, Layers, Zap, Download } from 'lucide-react'
+import { ArrowRight, Layers, Zap, Download, Github } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
@@ -18,17 +18,25 @@ export default function LandingPage() {
                     <span className="text-2xl font-black tracking-tight">Know<span className="text-cyan-500">Bear</span></span>
                 </Link>
 
-                <nav className="hidden md:flex items-center gap-8 text-sm text-gray-300">
-                    <a href="#how-it-works" className="hover:text-cyan-400 transition-colors">How it works</a>
-                    <a href="#workflow" className="hover:text-cyan-400 transition-colors">Workflow</a>
-                </nav>
 
-                <Link
-                    to="/app"
-                    className="px-5 py-2.5 rounded-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold transition-colors"
-                >
-                    Try the App
-                </Link>
+
+                <div className="flex items-center gap-4">
+                    <a
+                        href="https://github.com/voidcommit-afk/KnowBear-v1"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-gray-400 hover:text-white transition-colors"
+                        aria-label="GitHub repository"
+                    >
+                        <Github className="w-5 h-5" />
+                    </a>
+                    <Link
+                        to="/app"
+                        className="px-5 py-2.5 rounded-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold transition-colors"
+                    >
+                        Try the App
+                    </Link>
+                </div>
             </header>
 
             <main className="relative z-10">
@@ -40,9 +48,9 @@ export default function LandingPage() {
                             transition={{ duration: 0.5 }}
                             className="text-5xl md:text-7xl font-black tracking-tight leading-[0.95]"
                         >
-                            Search Any Topic,
+                            Unravel Complexity,
                             <br />
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">Get Clear Explanations Fast</span>
+                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">Understand Anything Instantly</span>
                         </motion.h1>
 
                         <motion.p
@@ -51,7 +59,7 @@ export default function LandingPage() {
                             transition={{ delay: 0.1, duration: 0.5 }}
                             className="mt-8 text-gray-300 text-lg md:text-xl max-w-3xl mx-auto"
                         >
-                            Ask a question, pull live retrieval context, and read structured explanations in either fast mode or ensemble mode.
+                            Unlock deep insights with real-time web context. From lightning-fast answers to comprehensive analysis, we decode the toughest topics into crystal-clear explanations.
                         </motion.p>
 
                         <motion.div
@@ -93,10 +101,9 @@ export default function LandingPage() {
 
                 <section id="workflow" className="px-6 py-20">
                     <div className="max-w-4xl mx-auto text-center">
-                        <h2 className="text-3xl md:text-4xl font-black tracking-tight">How It Flows</h2>
-                        <p className="mt-4 text-gray-300">
-                            Enter a topic, pick a mode, stream the response, then export the final explanation as markdown or text.
-                            Use fast mode when speed matters and ensemble mode when depth and consistency matter most.
+                        <h2 className="text-3xl md:text-4xl font-black tracking-tight">Seamless Intelligence</h2>
+                        <p className="mt-4 text-gray-300 text-lg">
+                            Search any topic. Choose lightning-fast answers or deep ensemble synthesis. Watch your intelligence stream in real-time, then export it anywhere. It's learning, supercharged.
                         </p>
                         <div className="mt-8">
                             <Link to="/app" className="text-cyan-400 hover:text-cyan-300 font-semibold">
@@ -112,8 +119,10 @@ export default function LandingPage() {
                     <span>© 2026 KnowBear Demo</span>
                     <span>Stateless demo.</span>
                     <div className="flex items-center gap-6">
-                        <Link to="/" className="hover:text-cyan-400 transition-colors">Home</Link>
-                        <Link to="/app" className="hover:text-cyan-400 transition-colors">Try the App</Link>
+                        <a href="https://github.com/voidcommit-afk/KnowBear-v1" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors flex items-center gap-2">
+                            <Github className="w-4 h-4" />
+                            GitHub Repository
+                        </a>
                     </div>
                 </div>
             </footer>
