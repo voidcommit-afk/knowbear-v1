@@ -101,7 +101,7 @@ export default function AppPage() {
 
             <main className="flex-1 flex flex-col overflow-hidden">
                 <div className="flex-1 overflow-y-auto">
-                    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+                    <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-6">
                         <div className="space-y-4">
                             <SearchBar onSearch={(topic) => handleSearch(topic, false)} loading={loading} mode={mode} onModeChange={setMode} />
 
@@ -142,13 +142,13 @@ export default function AppPage() {
                                 >
                                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                                         <div>
-                                            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">{result.topic}</h2>
+                                            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight break-words">{result.topic}</h2>
                                             <p className="text-sm text-gray-500 mt-1">
                                                 Mode: <span className="text-cyan-400 font-medium">{mode}</span>
                                             </p>
                                         </div>
 
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
                                             <LevelDropdown selected={selectedLevel} onChange={handleLevelClick} />
                                             <ExportDropdown topic={result.topic} explanations={result.explanations} mode={mode} />
                                         </div>

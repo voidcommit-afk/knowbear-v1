@@ -57,7 +57,7 @@ export default function SearchBar({ onSearch, loading, mode, onModeChange, value
         <div className="w-full max-w-3xl mx-auto space-y-4">
             <form onSubmit={handleSubmit} className="relative group z-20">
                 <div className={`absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-2xl opacity-20 group-hover:opacity-40 transition duration-500 ${isFocused ? 'opacity-60' : ''}`}></div>
-                <div className="relative flex items-center bg-dark-800 border border-dark-600 rounded-2xl p-2 transition-all shadow-xl group-hover:border-dark-500">
+                <div className="relative flex flex-wrap items-center bg-dark-800 border border-dark-600 rounded-2xl p-2 transition-all shadow-xl group-hover:border-dark-500">
                     <Search className={`ml-3 w-5 h-5 transition-colors ${isFocused ? 'text-cyan-400' : 'text-gray-500'}`} />
                     <input
                         ref={inputRef}
@@ -82,14 +82,14 @@ export default function SearchBar({ onSearch, loading, mode, onModeChange, value
                     <button
                         type="submit"
                         disabled={!topic.trim() || loading}
-                        className="ml-2 px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-bold transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-cyan-900/20"
+                        className="ml-1 sm:ml-2 px-3 sm:px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-bold transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex flex-wrap items-center justify-center shrink-0 gap-2 shadow-lg shadow-cyan-900/20"
                     >
                         {loading ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
                         ) : (
                             <>
                                 <Sparkles className="w-4 h-4" />
-                                <span>Explain</span>
+                                <span className="hidden sm:inline">Explain</span>
                             </>
                         )}
                     </button>

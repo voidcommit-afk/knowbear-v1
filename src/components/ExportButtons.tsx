@@ -23,7 +23,7 @@ export default function ExportButtons({ topic, explanations }: ExportButtonsProp
     }
 
     return (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
             <button
                 onClick={() => handleExport('txt')}
                 className="px-4 py-2 bg-dark-600 text-gray-300 rounded-lg hover:bg-dark-500 text-sm transition-colors"

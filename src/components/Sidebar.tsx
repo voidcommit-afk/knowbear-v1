@@ -1,5 +1,7 @@
 import { ChevronLeft, ChevronRight, Github } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useEffect, useState } from 'react'
 
 interface SidebarProps {
     isOpen: boolean
@@ -17,15 +19,40 @@ const QUICK_TOPICS = [
 
 export default function Sidebar({ isOpen, onToggle, onSelectTopic }: SidebarProps) {
     const navigate = useNavigate()
+    const [isMobile, setIsMobile] = useState(false)
+
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768)
+        checkMobile()
+        window.addEventListener('resize', checkMobile)
+        return () => window.removeEventListener('resize', checkMobile)
+    }, [])
 
     return (
         <>
-            {isOpen && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-300" onClick={onToggle} />
-            )}
+            <AnimatePresence>
+                {isOpen && isMobile && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+                        onClick={onToggle}
+                    />
+                )}
+            </AnimatePresence>
 
-            <aside
-                className={`fixed left-0 top-0 h-full bg-dark-900 border-r border-dark-700 transition-all duration-300 z-50 flex flex-col ${isOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full md:translate-x-0 md:w-16'}`}
+            <motion.aside
+                className={`fixed left-0 top-0 h-full bg-dark-900 border-r border-dark-700 transition-all duration-300 z-50 flex flex-col ${isOpen ? 'w-64 translate-x-0 shadow-2xl shadow-cyan-900/10' : 'w-64 -translate-x-full md:translate-x-0 md:w-16'}`}
+                drag={isMobile && isOpen ? "x" : false}
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.2}
+                onDragEnd={(_e, info) => {
+                    if (isMobile && isOpen && (info.offset.x < -50 || info.velocity.x < -500)) {
+                        onToggle()
+                    }
+                }}
             >
                 <button
                     onClick={onToggle}
@@ -35,7 +62,7 @@ export default function Sidebar({ isOpen, onToggle, onSelectTopic }: SidebarProp
                     {isOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
                 </button>
 
-                <div className={`p-4 flex items-center gap-3 border-b border-dark-700 ${!isOpen && 'justify-center'}`}>
+                <div className={`p-4 flex flex-wrap items-center gap-3 border-b border-dark-700 ${!isOpen && 'justify-center'}`}>
                     <button
                         onClick={() => navigate('/')}
                         className="cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 rounded"
@@ -63,7 +90,7 @@ export default function Sidebar({ isOpen, onToggle, onSelectTopic }: SidebarProp
                     ) : null}
                 </nav>
 
-                <div className={`p-4 border-t border-dark-700 flex items-center ${isOpen ? 'justify-between' : 'justify-center'}`}>
+                <div className={`p-4 border-t border-dark-700 flex flex-wrap items-center ${isOpen ? 'justify-between' : 'justify-center'}`}>
                     {isOpen && <span className="text-[10px] text-gray-600 font-mono">Demo Mode</span>}
                     <a
                         href="https://github.com/voidcommit-afk/KnowBear-v1"
@@ -75,7 +102,7 @@ export default function Sidebar({ isOpen, onToggle, onSelectTopic }: SidebarProp
                         <Github className="w-5 h-5" />
                     </a>
                 </div>
-            </aside>
+            </motion.aside>
         </>
     )
 }

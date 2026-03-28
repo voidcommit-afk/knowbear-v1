@@ -40,7 +40,7 @@ export default function ExplanationCard({ level, content, streaming }: Explanati
         <div
             className={`bg-dark-700 border-l-4 ${borderColor} rounded-lg p-6 transition-all shadow-2xl relative`}
         >
-            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4 border-b border-white/5 pb-2 flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4 border-b border-white/5 pb-2 flex flex-wrap items-center gap-2">
                 {LEVEL_NAMES[level]}
             </h3>
 

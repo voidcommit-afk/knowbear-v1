@@ -36,7 +36,7 @@ export default function LevelDropdown({ selected, onChange }: LevelDropdownProps
         <div className="relative w-full md:w-64" ref={dropdownRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-full flex items-center justify-between px-4 py-3 bg-dark-700 hover:bg-dark-600 border border-dark-600 rounded-lg text-white transition-all outline-none focus:border-accent-primary"
+                className="w-full flex flex-wrap items-center justify-between px-4 py-3 bg-dark-700 hover:bg-dark-600 border border-dark-600 rounded-lg text-white transition-all outline-none focus:border-accent-primary"
             >
                 <span className="font-medium">{LEVEL_LABELS[selected]}</span>
                 <svg className={`w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">

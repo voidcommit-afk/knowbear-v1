@@ -9,7 +9,7 @@ export default function PinnedTopics({ topics, onSelect }: PinnedTopicsProps) {
     return (
         <section className="w-full max-w-4xl mx-auto mt-8">
             <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-widest mb-4">Popular Topics</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {topics.map((t) => (
                     <button
                         key={t.id}

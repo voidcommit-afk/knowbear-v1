@@ -12,15 +12,13 @@ export default function LandingPage() {
                 <div className="absolute inset-0 bg-gradient-to-b from-cyan-950/20 via-black to-black" />
             </div>
 
-            <header className="relative z-20 max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-                <Link to="/" className="flex items-center gap-3">
-                    <img src="/favicon.svg" alt="KnowBear" className="w-10 h-10 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]" />
-                    <span className="text-2xl font-black tracking-tight">Know<span className="text-cyan-500">Bear</span></span>
+            <header className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex flex-wrap items-center justify-between gap-x-2 gap-y-4">
+                <Link to="/" className="flex items-center gap-2 sm:gap-3 shrink-0">
+                    <img src="/favicon.svg" alt="KnowBear" className="w-8 h-8 sm:w-10 sm:h-10 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]" />
+                    <span className="text-xl sm:text-2xl font-black tracking-tight">Know<span className="text-cyan-500">Bear</span></span>
                 </Link>
 
-
-
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 sm:gap-4 shrink-0">
                     <a
                         href="https://github.com/voidcommit-afk/KnowBear-v1"
                         target="_blank"
@@ -32,7 +30,7 @@ export default function LandingPage() {
                     </a>
                     <Link
                         to="/app"
-                        className="px-5 py-2.5 rounded-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold transition-colors"
+                        className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-full bg-cyan-600 hover:bg-cyan-500 text-white text-sm sm:text-base font-semibold transition-colors whitespace-nowrap"
                     >
                         Try the App
                     </Link>
@@ -46,7 +44,7 @@ export default function LandingPage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.5 }}
-                            className="text-5xl md:text-7xl font-black tracking-tight leading-[0.95]"
+                            className="text-4xl sm:text-5xl md:text-7xl font-black tracking-tight leading-[1] md:leading-[0.95]"
                         >
                             Unravel Complexity,
                             <br />
@@ -57,7 +55,7 @@ export default function LandingPage() {
                             initial={{ opacity: 0, y: 16 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.1, duration: 0.5 }}
-                            className="mt-8 text-gray-300 text-lg md:text-xl max-w-3xl mx-auto"
+                            className="mt-6 md:mt-8 text-gray-300 text-base sm:text-lg md:text-xl max-w-3xl mx-auto px-2 sm:px-0"
                         >
                             Unlock deep insights with real-time web context. From lightning-fast answers to comprehensive analysis, we decode the toughest topics into crystal-clear explanations.
                         </motion.p>
@@ -70,7 +68,7 @@ export default function LandingPage() {
                         >
                             <Link
                                 to="/app"
-                                className="inline-flex items-center gap-3 px-8 py-4 rounded-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-lg transition-colors"
+                                className="inline-flex items-center justify-center w-full sm:w-auto gap-3 px-8 py-4 rounded-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-lg transition-colors"
                             >
                                 Start Searching
                                 <ArrowRight className="w-5 h-5" />
@@ -115,11 +113,11 @@ export default function LandingPage() {
             </main>
 
             <footer className="relative z-10 border-t border-white/10 py-8 px-6">
-                <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-gray-400">
+                <div className="max-w-7xl mx-auto flex flex-col sm:flex-row flex-wrap items-center justify-between gap-6 sm:gap-3 text-sm text-gray-400 text-center sm:text-left">
                     <span>© 2026 KnowBear Demo</span>
                     <span>Stateless demo.</span>
-                    <div className="flex items-center gap-6">
-                        <a href="https://github.com/voidcommit-afk/KnowBear-v1" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-center gap-6">
+                        <a href="https://github.com/voidcommit-afk/KnowBear-v1" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors flex flex-wrap items-center gap-2">
                             <Github className="w-4 h-4" />
                             GitHub Repository
                         </a>

@@ -53,7 +53,7 @@ export default function ModeDropdown({ selected, onChange, disabled }: ModeDropd
                 type="button"
                 onClick={() => !disabled && setIsOpen(!isOpen)}
                 disabled={disabled}
-                className="flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 bg-dark-800/80 backdrop-blur-md border border-dark-600 hover:border-dark-400 hover:bg-dark-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-cyan-500/50 group relative overflow-hidden"
+                className="flex flex-wrap items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 bg-dark-800/80 backdrop-blur-md border border-dark-600 hover:border-dark-400 hover:bg-dark-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-cyan-500/50 group relative overflow-hidden"
             >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-shimmer" />
                 <selectedMode.icon className={`w-4 h-4 ${selectedMode.color}`} />
@@ -64,7 +64,7 @@ export default function ModeDropdown({ selected, onChange, disabled }: ModeDropd
             </button>
 
             {isOpen && (
-                <div className="absolute bottom-full md:bottom-auto md:top-full left-0 md:right-0 mb-2 md:mb-0 md:mt-2 w-[280px] z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-auto md:right-0 w-[280px] max-w-[calc(100vw-2rem)] z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="bg-dark-800/95 backdrop-blur-xl border border-dark-600 rounded-2xl shadow-2xl overflow-hidden p-1.5 space-y-1">
                         {MODES.map((m) => (
                             <button

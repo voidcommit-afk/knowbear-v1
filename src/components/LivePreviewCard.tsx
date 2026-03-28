@@ -75,7 +75,7 @@ export function LivePreviewCard() {
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-600/5 rounded-full blur-3xl -z-10" />
 
                 {/* Question Section */}
-                <div className="flex gap-4 items-start mb-8">
+                <div className="flex flex-wrap gap-4 items-start mb-8">
                     <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
                         <User className="w-5 h-5 text-gray-400" />
                     </div>
@@ -89,7 +89,7 @@ export function LivePreviewCard() {
                 </div>
 
                 {/* Answer Section */}
-                <div className="flex gap-4 items-start min-h-[160px]">
+                <div className="flex flex-wrap gap-4 items-start min-h-[160px]">
                     <div className="w-10 h-10 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0">
                         <Sparkles className="w-5 h-5 text-cyan-400" />
                     </div>

@@ -88,13 +88,13 @@ export default function ExportDropdown({ topic, explanations, compact = false, m
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 disabled={loading}
-                className={`flex items-center justify-between bg-dark-700 hover:bg-dark-600 border border-dark-600 rounded-xl text-white transition-all outline-none focus:border-cyan-500 disabled:opacity-50 ${compact ? 'p-3' : 'px-4 py-3'}`}
+                className={`flex flex-wrap items-center justify-between bg-dark-700 hover:bg-dark-600 border border-dark-600 rounded-xl text-white transition-all outline-none focus:border-cyan-500 disabled:opacity-50 ${compact ? 'p-3' : 'px-4 py-3'}`}
             >
                 {compact ? (
                     copied ? <Check className="w-5 h-5 text-green-400" /> : <Download className={`w-5 h-5 ${loading ? 'animate-pulse' : ''}`} />
                 ) : (
                     <>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                             <span className="font-medium">{loading ? 'Exporting...' : copied ? 'Copied!' : 'Export'}</span>
                         </div>
                         <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -103,11 +103,11 @@ export default function ExportDropdown({ topic, explanations, compact = false, m
             </button>
 
             {isOpen && (
-                <div className="absolute z-50 w-56 md:w-full bottom-full md:bottom-auto md:top-full mb-2 md:mb-0 md:mt-2 right-0 bg-dark-800 border border-dark-600 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 md:slide-in-from-top-2 duration-200">
+                <div className={`absolute z-50 w-56 max-w-[calc(100vw-2rem)] md:w-full ${compact ? 'bottom-full mb-2' : 'top-full mt-2'} right-0 bg-dark-800 border border-dark-600 rounded-xl shadow-2xl overflow-hidden animate-in fade-in ${compact ? 'slide-in-from-bottom-2' : 'slide-in-from-top-2'} duration-200`}>
                     <div className="px-3 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-dark-700/50">
                         Select Action
                     </div>
-                    <button onClick={() => handleExport('copy')} className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2 group">
+                    <button onClick={() => handleExport('copy')} className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors flex flex-wrap items-center gap-2 group">
                         <Copy size={14} className="text-gray-500 group-hover:text-cyan-400 transition-colors" />
                         <span>{EXPORT_LABELS.copy}</span>
                     </button>

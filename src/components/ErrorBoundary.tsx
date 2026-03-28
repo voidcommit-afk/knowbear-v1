@@ -48,9 +48,9 @@ export class ErrorBoundary extends Component<Props, State> {
     render() {
         if (this.state.hasError) {
             return (
-                <div className="min-h-screen bg-gradient-to-b from-black via-dark-900 to-black flex items-center justify-center p-4">
+                <div className="min-h-screen bg-gradient-to-b from-black via-dark-900 to-black flex flex-wrap items-center justify-center p-4">
                     <div className="max-w-2xl w-full bg-dark-800/50 backdrop-blur-xl border border-red-500/20 rounded-2xl p-8 shadow-2xl">
-                        <div className="flex items-center gap-4 mb-6">
+                        <div className="flex flex-wrap items-center gap-4 mb-6">
                             <div className="p-4 bg-red-500/10 rounded-full">
                                 <AlertTriangle className="w-8 h-8 text-red-400" />
                             </div>
@@ -78,17 +78,17 @@ export class ErrorBoundary extends Component<Props, State> {
                             </div>
                         )}
 
-                        <div className="flex gap-3">
+                        <div className="flex flex-wrap gap-3">
                             <button
                                 onClick={this.handleReload}
-                                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl transition-all font-medium"
+                                className="flex-1 flex flex-wrap items-center justify-center gap-2 px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl transition-all font-medium"
                             >
                                 <RefreshCcw className="w-4 h-4" />
                                 Reload Page
                             </button>
                             <button
                                 onClick={this.handleGoHome}
-                                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-dark-700 hover:bg-dark-600 border border-white/10 text-white rounded-xl transition-all font-medium"
+                                className="flex-1 flex flex-wrap items-center justify-center gap-2 px-6 py-3 bg-dark-700 hover:bg-dark-600 border border-white/10 text-white rounded-xl transition-all font-medium"
                             >
                                 <Home className="w-4 h-4" />
                                 Go Home
