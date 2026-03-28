@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { RefreshCcw } from 'lucide-react'
-import type { Level, Mode, PinnedTopic } from '../types'
-import { getPinnedTopics } from '../api'
+import type { Level, Mode } from '../types'
 import SearchBar from '../components/SearchBar'
 import LevelDropdown from '../components/LevelDropdown'
 import ExplanationCard from '../components/ExplanationCard'
@@ -35,20 +34,20 @@ export default function AppPage() {
     const startSearch = useKnowBearStore((state) => state.startSearch)
     const fetchLevel = useKnowBearStore((state) => state.fetchLevel)
     const abortCurrentStream = useKnowBearStore((state) => state.abortCurrentStream)
-
-    const [pinnedTopics, setPinnedTopics] = useState<PinnedTopic[]>([])
-    const [loadingPinned, setLoadingPinned] = useState(true)
+    
+    const pinnedTopics = useKnowBearStore((state) => state.pinnedTopics)
+    const fetchPinnedTopics = useKnowBearStore((state) => state.fetchPinnedTopics)
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            getPinnedTopics()
-                .then((topics) => setPinnedTopics(topics))
-                .catch((err) => console.error('Failed to load pinned topics:', err))
-                .finally(() => setLoadingPinned(false))
-        }, 100)
+        fetchPinnedTopics()
+    }, [fetchPinnedTopics])
 
-        return () => clearTimeout(timer)
-    }, [])
+    const handleSearch = useCallback(
+        async (topic: string, forceRefresh = false, requestedMode?: Mode, requestedLevel?: Level) => {
+            await startSearch(topic, forceRefresh, requestedMode, requestedLevel)
+        },
+        [startSearch]
+    )
 
     useEffect(() => {
         if (activeTopic && !loading && result && result.mode !== mode && !loadingMeta) {
@@ -58,11 +57,18 @@ export default function AppPage() {
             setFetchingLevels(new Set())
             handleSearch(activeTopic, false, mode).finally(() => setModeSwitching(false))
         }
-    }, [mode, activeTopic, loading, result, loadingMeta])
-
-    const handleSearch = async (topic: string, forceRefresh = false, requestedMode?: Mode, requestedLevel?: Level) => {
-        await startSearch(topic, forceRefresh, requestedMode, requestedLevel)
-    }
+    }, [
+        mode,
+        activeTopic,
+        loading,
+        result,
+        loadingMeta,
+        abortCurrentStream,
+        handleSearch,
+        setFetchingLevels,
+        setModeSwitching,
+        setResult,
+    ])
 
     const handleLevelClick = async (level: Level) => {
         if (!result) return
@@ -157,7 +163,7 @@ export default function AppPage() {
                             ) : (
                                 <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-12">
                                     <p className="text-gray-600 text-lg mb-8">Search for a topic to get started</p>
-                                    {!loadingPinned && pinnedTopics.length > 0 && (
+                                    {pinnedTopics.length > 0 && (
                                         <PinnedTopics topics={pinnedTopics} onSelect={(topic) => handleSearch(topic, false)} />
                                     )}
                                 </motion.div>

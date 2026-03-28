@@ -13,6 +13,7 @@ build/
 .DS_Store
 .local-files/
 render.yaml
+.agent
 
 # Build info files
 tsconfig.tsbuildinfo
@@ -20,3 +21,4 @@ tsconfig.node.tsbuildinfo
 vite.config.d.ts
 api/.pytest_cache
 .vscode
+.pytest_cache

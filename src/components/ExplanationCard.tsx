@@ -1,5 +1,6 @@
 import type { Level } from '../types'
 import ReactMarkdown from 'react-markdown'
+import type { HTMLAttributes, ImgHTMLAttributes } from 'react'
 import remarkGfm from 'remark-gfm'
 import Mermaid from './Mermaid'
 import SafeImage from './SafeImage'
@@ -47,7 +48,7 @@ export default function ExplanationCard({ level, content, streaming }: Explanati
                 <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
-                        code({ node, inline, className, children, ...props }: any) {
+                        code({ inline, className, children, ...props }: HTMLAttributes<HTMLElement> & { inline?: boolean }) {
                             const match = /language-(\w+)/.exec(className || '')
                             const codeStr = String(children).replace(/\n$/, '')
 
@@ -64,10 +65,10 @@ export default function ExplanationCard({ level, content, streaming }: Explanati
                         pre({ children }) {
                             return <pre className="bg-dark-900 p-4 rounded-xl border border-white/5 overflow-x-auto my-4">{children}</pre>
                         },
-                        img({ src, alt }: any) {
-                            return <SafeImage src={src} alt={alt || 'Image'} />
+                        img({ src, alt }: ImgHTMLAttributes<HTMLImageElement>) {
+                            return <SafeImage src={src || ''} alt={alt || 'Image'} />
                         },
-                        a({ node, ...props }: any) {
+                        a({ ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
                             return <a {...props} target="_blank" rel="noopener noreferrer" className="underline decoration-cyan-500/30 underline-offset-4 hover:decoration-cyan-400 transition-all font-medium" />
                         },
                         h2({ children }) {

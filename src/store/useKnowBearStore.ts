@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { QueryResponse, Mode, Level } from '../types'
+import type { QueryResponse, Mode, Level, PinnedTopic } from '../types'
 import { queryTopicStream } from '../api'
 
 interface KnowBearState {
@@ -15,6 +15,8 @@ interface KnowBearState {
     loadingMeta: { mode: Mode; level: Level; topic: string } | null
     modeSwitching: boolean
     abortController: AbortController | null
+    pinnedTopics: PinnedTopic[]
+    pinnedTopicsLoaded: boolean
 
     setLoading: (loading: boolean) => void
     setResult: (result: QueryResponse | null) => void
@@ -27,6 +29,7 @@ interface KnowBearState {
     setActiveTopic: (topic: string) => void
     setLoadingMeta: (meta: { mode: Mode; level: Level; topic: string } | null) => void
     setModeSwitching: (switching: boolean) => void
+    fetchPinnedTopics: () => Promise<void>
 
     startSearch: (topic: string, forceRefresh?: boolean, requestedMode?: Mode, requestedLevel?: Level) => Promise<void>
     fetchLevel: (topic: string, level: Level, mode: Mode, options?: { temperature?: number; regenerate?: boolean }) => Promise<void>
@@ -47,6 +50,8 @@ const initialState = {
     loadingMeta: null,
     modeSwitching: false,
     abortController: null,
+    pinnedTopics: [],
+    pinnedTopicsLoaded: false,
 }
 
 export const useKnowBearStore = create<KnowBearState>()((set, get) => ({
@@ -69,6 +74,19 @@ export const useKnowBearStore = create<KnowBearState>()((set, get) => ({
         if (abortController) abortController.abort()
         const newController = new AbortController()
         set({ abortController: newController })
+    },
+
+    fetchPinnedTopics: async () => {
+        if (get().pinnedTopicsLoaded) return
+        try {
+            const { getPinnedTopics } = await import('../api')
+            const topics = await getPinnedTopics()
+            set({ pinnedTopics: topics, pinnedTopicsLoaded: true })
+        } catch (err) {
+            console.error('Failed to load pinned topics:', err)
+            // Even if it fails, maybe we mark it loaded to avoid infinite retries, or leave it false
+            set({ pinnedTopicsLoaded: true })
+        }
     },
 
     fetchLevel: async (topic: string, level: Level, mode: Mode, options?: { temperature?: number; regenerate?: boolean }) => {

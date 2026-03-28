@@ -52,7 +52,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({ mode, level, topic }
                 } else {
                     throw new Error('Invalid quote data')
                 }
-            } catch (err) {
+            } catch {
                 // Silently fall back to local quotes (API has SSL issues)
                 const randomFallback = FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)]
                 setQuote(randomFallback)
