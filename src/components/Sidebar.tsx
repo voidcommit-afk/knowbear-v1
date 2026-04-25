@@ -145,7 +145,7 @@ export default function Sidebar({ isOpen, onToggle, onSelectTopic, historyTopics
                     <div className={`flex w-full items-center ${isOpen ? 'justify-between' : 'justify-center'}`}>
                         {isOpen && <span className="text-[10px] text-gray-600 font-mono">Demo Mode</span>}
                         <a
-                            href="https://github.com/voidcommit-afk/KnowBear-v1"
+                            href="https://github.com/voidcommit-afk/knowbear-web"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-gray-400 hover:text-cyan-400 transition-colors"

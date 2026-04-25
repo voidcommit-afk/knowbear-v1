@@ -8,6 +8,7 @@ import ExplanationCard from '../components/ExplanationCard'
 import ExportDropdown from '../components/ExportDropdown'
 import Sidebar from '../components/Sidebar'
 import MobileBottomNav from '../components/MobileBottomNav'
+import MobileHeader from '../components/MobileHeader'
 import { LoadingState } from '../components/LoadingState'
 import PinnedTopics from '../components/PinnedTopics'
 import { useKnowBearStore } from '../store/useKnowBearStore'
@@ -138,9 +139,11 @@ export default function AppPage() {
             />
 
             <main className="flex-1 flex flex-col overflow-hidden">
+                <MobileHeader isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
+
                 <div className="flex-1 overflow-y-auto">
-                    <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-6">
-                        <div className="space-y-4">
+                    <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 pt-10 pb-6 sm:pt-12 sm:pb-8 space-y-4 sm:space-y-6">
+                        <div className="space-y-4 pt-2 sm:pt-3">
                             <SearchBar onSearch={(topic) => handleSearch(topic, false)} loading={loading} mode={mode} onModeChange={setMode} />
 
                             {modeSwitching && (
