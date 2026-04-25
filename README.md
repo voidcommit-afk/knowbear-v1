@@ -87,3 +87,11 @@ npm test -- --run
 python3 -m compileall -q api
 python3 -c "import main; print(bool(main.app))"
 ```
+
+---
+
+## Development Journey
+
+KnowBear started as a simple web app with single query-response interactions—the same lean stateless model you see today. It later evolved into a sophisticated chat application with three distinct workspace modes, designed to support complex multi-turn conversations and collaborative workspaces. After exploration, that architecture was sunsetted in favor of a more focused vision: a depth-first, explanation-driven B2B API powered by RAG (Retrieval-Augmented Generation).
+
+This current incarnation represents that refined direction—a streamlined, production-ready API that prioritizes depth of explanation and relevance through live retrieval context, while maintaining the simplicity and low-latency characteristics that made the original concept compelling.
