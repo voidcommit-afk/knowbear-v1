@@ -9,13 +9,9 @@ interface LevelDropdownProps {
 
 const LEVEL_LABELS: Record<Level, string> = {
     eli5: 'Like I\'m 5',
-    eli10: 'Like I\'m 10',
     eli12: 'Like I\'m 12',
     eli15: 'Like I\'m 15',
     meme: 'Meme Style',
-    classic60: 'Classic (80s/90s)',
-    gentle70: 'Gentle & Kind',
-    warm80: 'Warm & Fuzzy',
 }
 
 export default function LevelDropdown({ selected, onChange }: LevelDropdownProps) {

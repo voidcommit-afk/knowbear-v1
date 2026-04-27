@@ -25,8 +25,8 @@ export const LoadingState: React.FC<LoadingStateProps> = ({ mode, level, topic }
 
         if (level === 'eli5') {
             baseMessage = 'Brewing your ELI5 explanation...'
-        } else if (level === 'eli10') {
-            baseMessage = 'Preparing a simple 10-year-old friendly answer...'
+        } else if (level === 'eli12') {
+            baseMessage = 'Preparing a clear middle-school friendly explanation...'
         } else if (mode === 'fast' || mode === 'ensemble') {
             baseMessage = 'Crafting your answer...'
         }
