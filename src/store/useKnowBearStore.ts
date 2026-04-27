@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import type { QueryResponse, Mode, Level, PinnedTopic, StreamStatus } from '../types'
 import { queryTopicStream } from '../api'
 
-const HISTORY_KEY = 'knowbear-topic-history'
 const FAVORITES_KEY = 'knowbear-favorite-topics'
 const MAX_TOPIC_HISTORY = 12
 
@@ -43,7 +42,6 @@ interface KnowBearState {
     pinnedTopics: PinnedTopic[]
     pinnedTopicsLoaded: boolean
     streamStatus: StreamStatus
-    topicHistory: string[]
     favoriteTopics: string[]
     lastFailedRequest: { topic: string; mode: Mode; level: Level } | null
 
@@ -59,7 +57,6 @@ interface KnowBearState {
     setLoadingMeta: (meta: { mode: Mode; level: Level; topic: string } | null) => void
     setModeSwitching: (switching: boolean) => void
     setStreamStatus: (status: StreamStatus) => void
-    addTopicToHistory: (topic: string) => void
     toggleFavoriteTopic: (topic: string) => void
     fetchPinnedTopics: () => Promise<void>
     retryLastFailed: () => Promise<void>
@@ -86,14 +83,12 @@ const initialState = {
     pinnedTopics: [],
     pinnedTopicsLoaded: false,
     streamStatus: 'idle' as StreamStatus,
-    topicHistory: [],
     favoriteTopics: [],
     lastFailedRequest: null,
 }
 
 export const useKnowBearStore = create<KnowBearState>()((set, get) => ({
     ...initialState,
-    topicHistory: loadStringArray(HISTORY_KEY),
     favoriteTopics: loadStringArray(FAVORITES_KEY),
 
     setLoading: (loading) => set({ loading }),
@@ -108,14 +103,6 @@ export const useKnowBearStore = create<KnowBearState>()((set, get) => ({
     setLoadingMeta: (loadingMeta) => set({ loadingMeta }),
     setModeSwitching: (modeSwitching) => set({ modeSwitching }),
     setStreamStatus: (streamStatus) => set({ streamStatus }),
-    addTopicToHistory: (topic) => {
-        const cleanTopic = topic.trim()
-        if (!cleanTopic) return
-        const current = get().topicHistory.filter((item) => item.toLowerCase() !== cleanTopic.toLowerCase())
-        const next = [cleanTopic, ...current].slice(0, MAX_TOPIC_HISTORY)
-        saveStringArray(HISTORY_KEY, next)
-        set({ topicHistory: next })
-    },
     toggleFavoriteTopic: (topic) => {
         const cleanTopic = topic.trim()
         if (!cleanTopic) return
@@ -231,7 +218,6 @@ export const useKnowBearStore = create<KnowBearState>()((set, get) => ({
 
         const state = get()
         state.abortCurrentStream()
-        state.addTopicToHistory(topic)
 
         const effectiveMode = requestedMode || state.mode
         const activeLevel = requestedLevel || state.selectedLevel

@@ -25,7 +25,6 @@ export default function AppPage() {
     const loadingMeta = useKnowBearStore((state) => state.loadingMeta)
     const modeSwitching = useKnowBearStore((state) => state.modeSwitching)
     const streamStatus = useKnowBearStore((state) => state.streamStatus)
-    const topicHistory = useKnowBearStore((state) => state.topicHistory)
     const favoriteTopics = useKnowBearStore((state) => state.favoriteTopics)
     const lastFailedRequest = useKnowBearStore((state) => state.lastFailedRequest)
 
@@ -128,14 +127,13 @@ export default function AppPage() {
 
     return (
         <div className="flex h-screen bg-dark-900 text-white overflow-hidden">
-            <Sidebar
-                isOpen={isSidebarOpen}
-                onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-                onSelectTopic={(topic) => handleSearch(topic, false)}
-                historyTopics={topicHistory}
-                favoriteTopics={favoriteTopics}
-                onToggleFavorite={toggleFavoriteTopic}
-            />
+                <Sidebar
+                    isOpen={isSidebarOpen}
+                    onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+                    onSelectTopic={(topic) => handleSearch(topic, false)}
+                    favoriteTopics={favoriteTopics}
+                    onToggleFavorite={toggleFavoriteTopic}
+                />
 
             <main className="flex-1 flex flex-col overflow-hidden">
                 <MobileHeader isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />

@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Github, Pin, History, Star } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Github, Pin, Star } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useEffect, useState } from 'react'
@@ -7,7 +7,6 @@ interface SidebarProps {
     isOpen: boolean
     onToggle: () => void
     onSelectTopic: (topic: string) => void
-    historyTopics: string[]
     favoriteTopics: string[]
     onToggleFavorite: (topic: string) => void
 }
@@ -20,7 +19,7 @@ const QUICK_TOPICS = [
     'Photosynthesis',
 ]
 
-export default function Sidebar({ isOpen, onToggle, onSelectTopic, historyTopics, favoriteTopics, onToggleFavorite }: SidebarProps) {
+export default function Sidebar({ isOpen, onToggle, onSelectTopic, favoriteTopics, onToggleFavorite }: SidebarProps) {
     const navigate = useNavigate()
     const [isMobile, setIsMobile] = useState(false)
 
@@ -118,25 +117,6 @@ export default function Sidebar({ isOpen, onToggle, onSelectTopic, historyTopics
                                 </div>
                             )}
 
-                            {historyTopics.length > 0 && (
-                                <div className="pt-2">
-                                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest px-1 mb-2 flex items-center gap-2">
-                                        <History className="w-3 h-3" />
-                                        Recent
-                                    </h3>
-                                    <div className="space-y-1">
-                                        {historyTopics.slice(0, 8).map((topic) => (
-                                            <button
-                                                key={`hist-${topic}`}
-                                                onClick={() => onSelectTopic(topic)}
-                                                className="w-full text-left px-3 py-2 text-sm rounded-lg text-gray-300 hover:bg-dark-800 hover:text-white transition-colors"
-                                            >
-                                                {topic}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     ) : null}
                 </nav>
