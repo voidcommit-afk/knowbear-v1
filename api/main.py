@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 
 from config import get_settings
 from logging_config import logger, setup_logging
-from routers import export, pinned, query
+from routers import pinned, query
 from services.inference import close_client
 from services.model_provider import ModelError, ModelProvider, ModelUnavailable
 from token_rate_limit import TokenRateLimitExceeded
@@ -152,7 +152,6 @@ async def token_rate_limit_handler(request: Request, exc: TokenRateLimitExceeded
 
 app.include_router(pinned.router, prefix="/api")
 app.include_router(query.router, prefix="/api")
-app.include_router(export.router, prefix="/api")
 
 
 @app.get("/api/health", tags=["health"])

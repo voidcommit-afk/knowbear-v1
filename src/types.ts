@@ -22,12 +22,5 @@ export interface QueryResponse {
     mode?: Mode
 }
 
-export interface ExportRequest {
-    topic: string
-    explanations: Record<string, string>
-    format: 'txt' | 'md'
-    mode?: Mode
-}
-
 export const ALL_LEVELS = ['eli5', 'eli12', 'eli15', 'meme'] as const
 export type Level = (typeof ALL_LEVELS)[number]

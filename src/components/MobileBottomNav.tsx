@@ -1,27 +1,19 @@
 import { RefreshCcw, Menu, ChevronLeft } from 'lucide-react'
-import ExportDropdown from './ExportDropdown'
-import type { Mode } from '../types'
 
 interface MobileBottomNavProps {
     onRegenerate: () => void
-    topic: string
-    explanations: Record<string, string>
     loading: boolean
     hasResult: boolean
     isSidebarOpen: boolean
     onToggleSidebar: () => void
-    mode: Mode
 }
 
 export default function MobileBottomNav({
     onRegenerate,
-    topic,
-    explanations,
     loading,
     hasResult,
     isSidebarOpen,
     onToggleSidebar,
-    mode
 }: MobileBottomNavProps) {
     if (!hasResult && !loading) return null
 
@@ -55,9 +47,6 @@ export default function MobileBottomNav({
                                 <RefreshCcw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
                             </button>
 
-                            <div className="h-8 w-px bg-white/10 mx-1" />
-
-                            <ExportDropdown topic={topic} explanations={explanations} compact mode={mode} />
                         </div>
                     </div>
                 </div>

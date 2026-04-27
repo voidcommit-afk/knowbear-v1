@@ -1,4 +1,4 @@
-import type { PinnedTopic, QueryRequest, QueryResponse, ExportRequest, StreamStatus } from './types'
+import type { PinnedTopic, QueryRequest, QueryResponse, StreamStatus } from './types'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 const IS_DEV = import.meta.env.DEV
@@ -227,10 +227,3 @@ export async function queryTopicStream(
     await attemptStream()
 }
 
-export async function exportExplanations(req: ExportRequest): Promise<Blob> {
-    return fetchAPI('/api/export', {
-        method: 'POST',
-        body: JSON.stringify(req),
-        responseType: 'blob'
-    })
-}

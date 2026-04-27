@@ -5,7 +5,6 @@ import type { Level, Mode } from '../types'
 import SearchBar from '../components/SearchBar'
 import LevelDropdown from '../components/LevelDropdown'
 import ExplanationCard from '../components/ExplanationCard'
-import ExportDropdown from '../components/ExportDropdown'
 import Sidebar from '../components/Sidebar'
 import MobileBottomNav from '../components/MobileBottomNav'
 import MobileHeader from '../components/MobileHeader'
@@ -232,7 +231,6 @@ export default function AppPage() {
                                                 <RotateCcw className="w-4 h-4" />
                                                 Regenerate Level
                                             </button>
-                                            <ExportDropdown topic={result.topic} explanations={result.explanations} mode={mode} />
                                         </div>
                                     </div>
 
@@ -256,13 +254,10 @@ export default function AppPage() {
 
                 <MobileBottomNav
                     onRegenerate={handleRegenerate}
-                    topic={activeTopic}
-                    explanations={result?.explanations || {}}
                     loading={loading}
                     hasResult={!!result}
                     isSidebarOpen={isSidebarOpen}
                     onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-                    mode={mode}
                 />
             </main>
         </div>

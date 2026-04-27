@@ -24,10 +24,6 @@ vi.mock('../components/ExplanationCard', () => ({
     default: ({ content }: { content: string }) => <div data-testid="explanation-card">{content}</div>,
 }))
 
-vi.mock('../components/ExportDropdown', () => ({
-    default: () => <div data-testid="export-dropdown">Export</div>,
-}))
-
 vi.mock('../components/MobileBottomNav', () => ({
     default: () => <div data-testid="mobile-nav">Mobile Nav</div>,
 }))
