@@ -185,7 +185,7 @@ async def _upstash_keepalive() -> dict:
     return {"ok": ping_ok, "method": "ping+get", "key": warm_key}
 
 
-@app.get("/api/keep-alive", tags=["health"])
+@app.api_route("/api/keep-alive", methods=["GET", "HEAD"], tags=["health"])
 async def keep_alive():
     upstash_result = await _upstash_keepalive()
     if isinstance(upstash_result, Exception):
