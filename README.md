@@ -1,135 +1,146 @@
 # KnowBear
 
-KnowBear is a search-driven AI app that explains any topic in multiple readability levels. It supports two runtime modes:
+KnowBear is a personal full-stack AI explanation workspace focused on clean architecture, resilient streaming UX, and reliable runtime behavior.
 
-- `fast` for low-latency responses
-- `ensemble` for higher-quality synthesis
+## Project Highlights
 
-Both modes use the same retrieval entry point and enrich prompts with live web context before generation.
+This project is intentionally built with production-style concerns:
 
-## Features
+- Frontend with strong state/data boundaries (`zustand` + `zod`)
+- Backend with FastAPI, structured logging, middleware, and consistent error contracts
+- Streaming generation pipeline with fallback behavior
+- Redis-backed caching and token rate limiting with in-memory fallback
+- Dockerized local setup and one-command local startup
 
-- Search-driven explanation workflow
-- `fast` mode: quick response path
-- `ensemble` mode: multi-model generation with judge selection
-- Streaming responses over SSE
-- Export as `.txt` or `.md`
-- Upstash Redis-backed token rate limiting and response/search caching (with in-memory fallback)
+## Tech Stack
 
-## Architecture (High Level)
+- Frontend: React, Vite, TypeScript, Tailwind, Zustand, Zod
+- Backend: FastAPI, Pydantic, Uvicorn
+- AI layer: Groq + Gemini via provider abstraction
+- Web search & Retrieval: Tavily / Serper / Exa integration hooks
+- Caching & limits: Upstash Redis (optional), in-memory fallback
 
-- Frontend: React + Vite UI for search, mode selection, streaming, and export
-- Backend: FastAPI API for query, stream, export, and health endpoints
-- LLM routing layer: provider abstraction for model routing/judging
-- LiteLLM proxy: optional external gateway integration point (not bundled in this repo)
-- Search API integration: Exa, Tavily, and Serper for retrieval context
+## Architecture
 
-## API Endpoints
-
-- `GET /api/pinned` -> curated starter topics
-- `POST /api/query` -> generate one or more levels
-- `POST /api/query/stream` -> stream generated text
-- `POST /api/export` -> export as `txt` or `md`
-- `GET /api/health` -> service status
-- `GET /api/keep-alive` -> lightweight warm-up probe (Vercel + Upstash Redis ping/get)
-
-## Setup
-
-### 1) Install dependencies
-
-```bash
-npm install
-pip install -r api/requirements.txt
+```text
+                        +---------------------------+
+                        |       React Frontend      |
+                        |  - Search + mode UI       |
+User Browser            |  - Zustand global store   |
+-------------           |  - Zod runtime parsing    |
+     |                  +-------------+-------------+
+     |  HTTP + SSE                    |
+     v                                v
++----+--------------------------------+----+
+|            FastAPI Backend               |
+|  /api/query      /api/query/stream       |
+|  /api/pinned     /api/health             |
+|  /api/keep-alive                          |
+|                                           |
+|  Middleware: CORS, security headers,      |
+|  request-id logging, exception handlers   |
++----+-------------------------+------------+
+     |                         |
+     |                         |
+     v                         v
++----+----------------+   +---+----------------------+
+| Inference Services  |   | Cache / Rate Limiting    |
+| - ensemble/fast     |   | - Upstash Redis (opt)    |
+| - provider routing  |   | - in-memory fallback     |
+| - stream generation |   +--------------------------+
++----+----------------+
+     |
+     v
++----+----------------+      +------------------------+
+| LLM Providers       |      | Retrieval Providers    |
+| Groq / Gemini       |      | Tavily / Serper / Exa |
++---------------------+      +------------------------+
 ```
 
-### 2) Configure environment
+## API Surface
 
-Copy `.env.example` to `.env` and set required keys.
+- `GET /api/pinned` - curated starter topics
+- `POST /api/query` - generate one or more explanation levels
+- `POST /api/query/stream` - stream explanations over SSE
+- `GET /api/health` - service health metadata
+- `GET /api/keep-alive` - lightweight warmup probe (includes Upstash ping/get if configured)
 
-Required:
+## Local Development
 
-- `GROQ_API_KEY`
-- `VITE_API_URL`
+### Prerequisites
 
-Recommended:
+- Node.js 20+
+- Python 3.10+
 
-- `GEMINI_API_KEY` (judge/fallback path)
-- `TAVILY_API_KEY`
-- `SERPER_API_KEY`
-- `EXA_API_KEY`
-- `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` for Redis keep-alive
-- `TOKEN_RATE_LIMIT_ENABLED` and `TOKEN_RATE_LIMIT_PER_IP_HOUR` for token throttling behavior
-
-Optional:
-
-- `UPSTASH_KEEPALIVE_KEY` key name to read during `/api/keep-alive` (default: `keepalive:last`)
-
-## Keep-Alive (UptimeRobot)
-
-Use `GET /api/keep-alive` with a 5-minute interval from UptimeRobot. The endpoint returns `200` with `{ "status": "alive" }` and performs lightweight Upstash Redis commands (`PING` + `GET` on `UPSTASH_KEEPALIVE_KEY`) to keep both the Vercel function and Redis path warm.
-
-The route uses short HTTP timeouts to stay fast on Vercel hobby serverless and reduce cold-start impact.
-
-## Redis-Backed Limits And Cache
-
-When Upstash env vars are configured:
-
-- Token rate limiting is enforced in Redis (shared across serverless instances) in `token_rate_limit.py`.
-- Query response cache is stored in Redis with TTL (5 minutes) in `routers/query.py`.
-- Search context cache is stored in Redis with profile-based TTL in `services/search.py`.
-
-If Upstash is unavailable or not configured, the app falls back to existing in-memory behavior.
-
-### 3) Run the app
-
-Unified local command (frontend + backend):
+### One Command (recommended)
 
 ```bash
 npm run local:start
 ```
 
-Or run each service separately:
+What it does:
+1. Installs frontend dependencies (`npm install`)
+2. Installs backend dependencies (`python -m pip install -r api/requirements.txt`)
+3. Starts frontend on `http://localhost:5173`
+4. Starts backend on `http://localhost:8000`
 
-Backend:
-
-```bash
-python3 -m uvicorn main:app --reload --host 0.0.0.0 --port 8000 --app-dir api
-```
-
-Frontend:
-
-```bash
-npm run dev
-```
-
-### 4) Run with Docker
+## Docker
 
 ```bash
 docker compose up --build
 ```
 
-## Usage
+Services/ports:
+- Frontend: `5173`
+- Backend: `8000`
 
-1. Open the app at `http://localhost:5173/app` (or your configured frontend URL).
-2. Enter a topic.
-3. Choose mode:
-   - `fast` for speed
-   - `ensemble` for stronger quality
-4. Read the streamed response and export if needed.
+## Environment Variables
 
-## Validation
+Create a `.env` file (or set environment variables directly).
+
+Commonly used:
+
+- `VITE_API_URL` (example: `http://localhost:8000`)
+- `GROQ_API_KEY`
+- `GEMINI_API_KEY` (optional fallback/judge path)
+- `TAVILY_API_KEY` / `SERPER_API_KEY` / `EXA_API_KEY` (optional retrieval providers)
+- `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` (optional distributed cache/limits)
+
+## Engineering Highlights
+
+- Runtime validation with Zod at frontend API boundaries to prevent invalid payload propagation.
+- Centralized Zustand store with persisted user preferences and non-persisted transient runtime state.
+- Streaming resilience with fallback to non-stream response path when SSE conditions are degraded.
+- Regenerate path bypasses cache and forwards temperature, enabling controlled response variation.
+
+## Validation Commands
 
 ```bash
 npm run type-check
-npm test -- --run
-python3 -m compileall -q api
-python3 -c "import main; print(bool(main.app))"
+npm run test -- --run
+python -m compileall -q api
 ```
 
----
+## Repository Structure
+
+```text
+src/                 # React frontend
+api/                 # FastAPI backend
+Dockerfile
+docker-compose.yml
+```
+
+## Note
+
+KnowBear is a personal project that evolved into a focused, depth-first explanation system with practical reliability features across frontend and backend.
 
 ## Development Journey
 
-KnowBear started as a simple web app with single query-response interactions—the same lean stateless model you see today. It later evolved into a sophisticated chat application with three distinct workspace modes, designed to support complex multi-turn conversations and collaborative workspaces. After exploration, that architecture was sunsetted in favor of a more focused vision: a depth-first, explanation-driven B2B API powered by RAG (Retrieval-Augmented Generation).
+KnowBear began as a lean web application built around single query-response interactions: fast, stateless, and minimal by design. That core philosophy remains intact.
 
-This current incarnation represents that refined direction—a streamlined, production-ready API that prioritizes depth of explanation and relevance through live retrieval context, while maintaining the simplicity and low-latency characteristics that made the original concept compelling.
+It later expanded into a more ambitious chat platform with three dedicated workspace modes, built for multi-turn conversations and collaborative workflows. The experiment was valuable, but it also made the product heavier and less focused than intended.
+
+The project was then reoriented toward a clearer objective: a depth-first, explanation-driven system powered by RAG (Retrieval-Augmented Generation). That iteration remains a work in progress.
+
+The current version reflects the lessons from each phase. It is a streamlined, production-ready API focused on delivering deeper answers with relevant live retrieval context, while preserving the speed, simplicity, and low-latency experience that made the original concept effective.
+
