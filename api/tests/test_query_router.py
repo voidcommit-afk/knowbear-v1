@@ -23,6 +23,19 @@ async def test_query_invalid_topic(app_client):
 
 
 @pytest.mark.asyncio
+async def test_query_allows_common_real_world_punctuation(app_client, monkeypatch):
+    async def fake_ensemble_generate(*_args, **_kwargs):
+        return "generated"
+
+    monkeypatch.setattr(query_module, "ensemble_generate", fake_ensemble_generate)
+    resp = app_client.post(
+        "/api/query",
+        json={"topic": "C++/Rust: async & memory safety (2026)?", "levels": ["eli5"], "mode": "fast"},
+    )
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
 async def test_query_supports_all_levels(app_client, monkeypatch):
     async def fake_ensemble_generate(_topic, _level, *_args, **_kwargs):
         return "ok"

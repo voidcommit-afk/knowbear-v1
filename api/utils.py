@@ -4,7 +4,8 @@ import re
 import html
 
 MAX_TOPIC_LENGTH = 200
-ALLOWED_PATTERN = re.compile(r"^[\w\s\-.,!?'\"()]+$", re.UNICODE)
+CONTROL_CHARS_PATTERN = re.compile(r"[\x00-\x1f\x7f]")
+UNSAFE_MARKUP_PATTERN = re.compile(r"[<>]")
 
 
 def sanitize_topic(topic: str) -> str:
@@ -14,7 +15,9 @@ def sanitize_topic(topic: str) -> str:
     topic = topic.strip()
     if len(topic) > MAX_TOPIC_LENGTH:
         raise ValueError(f"Topic exceeds {MAX_TOPIC_LENGTH} chars")
-    if not ALLOWED_PATTERN.match(topic):
+    if CONTROL_CHARS_PATTERN.search(topic):
+        raise ValueError("Invalid control characters in topic")
+    if UNSAFE_MARKUP_PATTERN.search(topic):
         raise ValueError("Invalid characters in topic")
     return html.escape(topic)
 

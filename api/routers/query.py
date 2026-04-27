@@ -115,6 +115,11 @@ async def query_topic(req: QueryRequest, request: Request) -> QueryResponse:
     try:
         topic = sanitize_topic(req.topic)
     except ValueError as e:
+        logger.warning(
+            "query_topic_invalid",
+            reason=str(e),
+            topic_sample=(req.topic[:80] if isinstance(req.topic, str) else "<non-string>"),
+        )
         raise HTTPException(400, str(e)) from e
 
     levels = _normalize_levels(req.levels)
@@ -170,6 +175,11 @@ async def query_topic_stream(req: QueryRequest, request: Request):
     try:
         topic = sanitize_topic(req.topic)
     except ValueError as e:
+        logger.warning(
+            "query_stream_topic_invalid",
+            reason=str(e),
+            topic_sample=(req.topic[:80] if isinstance(req.topic, str) else "<non-string>"),
+        )
         raise HTTPException(400, str(e)) from e
 
     level = req.levels[0] if req.levels and req.levels[0] in ALL_LEVELS else "eli5"
