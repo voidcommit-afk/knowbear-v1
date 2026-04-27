@@ -53,9 +53,8 @@ export default function ModeDropdown({ selected, onChange, disabled }: ModeDropd
                 type="button"
                 onClick={() => !disabled && setIsOpen(!isOpen)}
                 disabled={disabled}
-                className="flex flex-wrap items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 bg-dark-800/80 backdrop-blur-md border border-dark-600 hover:border-dark-400 hover:bg-dark-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-cyan-500/50 group relative overflow-hidden"
+                className="flex flex-wrap items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 bg-dark-800 border border-dark-600 hover:border-dark-400 hover:bg-dark-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-cyan-500/50 group relative overflow-hidden"
             >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-shimmer" />
                 <selectedMode.icon className={`w-4 h-4 ${selectedMode.color}`} />
                 <div className="flex flex-col items-start">
                     <span className="text-sm font-bold text-white leading-none">{selectedMode.label}</span>

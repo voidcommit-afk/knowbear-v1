@@ -8,10 +8,6 @@ vi.mock('../api', () => ({
     getPinnedTopics: vi.fn(() => Promise.resolve([])),
 }))
 
-vi.mock('../components/Sidebar', () => ({
-    default: () => <div data-testid="sidebar" />,
-}))
-
 vi.mock('../components/SearchBar', () => ({
     default: () => <div data-testid="search-bar" />,
 }))
@@ -22,10 +18,6 @@ vi.mock('../components/LevelDropdown', () => ({
 
 vi.mock('../components/ExplanationCard', () => ({
     default: ({ content }: { content: string }) => <div data-testid="explanation-card">{content}</div>,
-}))
-
-vi.mock('../components/MobileBottomNav', () => ({
-    default: () => <div data-testid="mobile-nav">Mobile Nav</div>,
 }))
 
 vi.mock('../components/LoadingState', () => ({
@@ -46,7 +38,6 @@ describe('AppPage', () => {
         )
 
         expect(screen.getByTestId('search-bar')).toBeInTheDocument()
-        expect(screen.getByTestId('sidebar')).toBeInTheDocument()
         expect(screen.getByText('Search for a topic to get started')).toBeInTheDocument()
     })
 

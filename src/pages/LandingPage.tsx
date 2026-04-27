@@ -26,7 +26,7 @@ export default function LandingPage() {
                             KnowBear
                         </div>
                         <h1 className="mt-5 text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight leading-tight">
-                            Explain anything, at your level.
+                            Learn anything, at your level.
                         </h1>
                         <p className="mt-4 text-gray-300 text-base sm:text-lg">
                             A focused explanation workspace for fast and deep learning.

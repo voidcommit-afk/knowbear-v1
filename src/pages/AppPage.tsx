@@ -1,16 +1,20 @@
 import { useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { RefreshCcw, RotateCcw, AlertTriangle } from 'lucide-react'
-import type { Level, Mode } from '../types'
+import type { Level, Mode, PinnedTopic } from '../types'
 import SearchBar from '../components/SearchBar'
 import LevelDropdown from '../components/LevelDropdown'
 import ExplanationCard from '../components/ExplanationCard'
-import Sidebar from '../components/Sidebar'
-import MobileBottomNav from '../components/MobileBottomNav'
-import MobileHeader from '../components/MobileHeader'
 import { LoadingState } from '../components/LoadingState'
 import PinnedTopics from '../components/PinnedTopics'
 import { useKnowBearStore } from '../store/useKnowBearStore'
+
+const FALLBACK_PINNED_TOPICS: PinnedTopic[] = [
+    { id: 'tcp-ip', title: 'TCP/IP Layers', description: 'Protocols and responsibilities by layer.' },
+    { id: 'osi', title: 'OSI Model', description: 'A clean reference for network fundamentals.' },
+    { id: 'climate-change', title: 'Climate Change', description: 'Causes, impacts, and practical responses.' },
+    { id: 'rag', title: 'How LLM RAG Works', description: 'Retrieval + generation in practice.' },
+]
 
 export default function AppPage() {
     const loading = useKnowBearStore((state) => state.loading)
@@ -20,21 +24,17 @@ export default function AppPage() {
     const mode = useKnowBearStore((state) => state.mode)
     const fetchingLevels = useKnowBearStore((state) => state.fetchingLevels)
     const failedLevels = useKnowBearStore((state) => state.failedLevels)
-    const isSidebarOpen = useKnowBearStore((state) => state.isSidebarOpen)
     const activeTopic = useKnowBearStore((state) => state.activeTopic)
     const loadingMeta = useKnowBearStore((state) => state.loadingMeta)
     const modeSwitching = useKnowBearStore((state) => state.modeSwitching)
     const streamStatus = useKnowBearStore((state) => state.streamStatus)
-    const favoriteTopics = useKnowBearStore((state) => state.favoriteTopics)
     const lastFailedRequest = useKnowBearStore((state) => state.lastFailedRequest)
 
     const setSelectedLevel = useKnowBearStore((state) => state.setSelectedLevel)
     const setMode = useKnowBearStore((state) => state.setMode)
-    const setIsSidebarOpen = useKnowBearStore((state) => state.setIsSidebarOpen)
     const setModeSwitching = useKnowBearStore((state) => state.setModeSwitching)
     const setResult = useKnowBearStore((state) => state.setResult)
     const setFetchingLevels = useKnowBearStore((state) => state.setFetchingLevels)
-    const toggleFavoriteTopic = useKnowBearStore((state) => state.toggleFavoriteTopic)
     const startSearch = useKnowBearStore((state) => state.startSearch)
     const fetchLevel = useKnowBearStore((state) => state.fetchLevel)
     const abortCurrentStream = useKnowBearStore((state) => state.abortCurrentStream)
@@ -91,11 +91,6 @@ export default function AppPage() {
         }
     }
 
-    const handleRegenerate = async () => {
-        if (!result || !activeTopic) return
-        await handleSearch(activeTopic, true, mode, selectedLevel)
-    }
-
     const handleRegenerateSelectedLevel = async () => {
         if (!result || !activeTopic) return
         const randomTemp = Math.random() * (1.1 - 0.95) + 0.95
@@ -125,23 +120,18 @@ export default function AppPage() {
         return urls.slice(0, 5)
     })()
 
+    const visiblePinnedTopics = pinnedTopics.length > 0 ? pinnedTopics : FALLBACK_PINNED_TOPICS
+
     return (
         <div className="flex h-screen bg-dark-900 text-white overflow-hidden">
-                <Sidebar
-                    isOpen={isSidebarOpen}
-                    onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-                    onSelectTopic={(topic) => handleSearch(topic, false)}
-                    favoriteTopics={favoriteTopics}
-                    onToggleFavorite={toggleFavoriteTopic}
-                />
-
             <main className="flex-1 flex flex-col overflow-hidden">
-                <MobileHeader isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
-
                 <div className="flex-1 overflow-y-auto">
-                    <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 pt-10 pb-6 sm:pt-12 sm:pb-8 space-y-4 sm:space-y-6">
-                        <div className="space-y-4 pt-2 sm:pt-3">
+                    <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 pt-5 pb-6 sm:pt-8 sm:pb-8 space-y-4 sm:space-y-6">
+                        <div className="space-y-3 pt-1 sm:pt-2">
                             <SearchBar onSearch={(topic) => handleSearch(topic, false)} loading={loading} mode={mode} onModeChange={setMode} />
+                            {!activeTopic && (
+                                <PinnedTopics topics={visiblePinnedTopics} onSelect={(topic) => handleSearch(topic, false)} />
+                            )}
 
                             {modeSwitching && (
                                 <motion.div
@@ -171,7 +161,7 @@ export default function AppPage() {
                                                 Retry Last Failed
                                             </button>
                                             <span className="text-xs text-red-200/70">
-                                                {lastFailedRequest.topic} · {lastFailedRequest.mode} · {lastFailedRequest.level}
+                                                {lastFailedRequest.topic} - {lastFailedRequest.mode} - {lastFailedRequest.level}
                                             </span>
                                         </div>
                                     )}
@@ -239,25 +229,16 @@ export default function AppPage() {
                                     />
                                 </motion.section>
                             ) : (
-                                <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-12">
-                                    <p className="text-gray-600 text-lg mb-8">Search for a topic to get started</p>
-                                    {pinnedTopics.length > 0 && (
-                                        <PinnedTopics topics={pinnedTopics} onSelect={(topic) => handleSearch(topic, false)} />
-                                    )}
+                                <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-10 sm:py-12">
+                                    <p className="text-gray-400 text-base sm:text-lg mb-2">Search for a topic to get started</p>
+                                    <p className="text-gray-500 text-sm mb-6 sm:mb-8">Type a topic above to begin.</p>
                                 </motion.div>
                             )}
                         </AnimatePresence>
                     </div>
                 </div>
-
-                <MobileBottomNav
-                    onRegenerate={handleRegenerate}
-                    loading={loading}
-                    hasResult={!!result}
-                    isSidebarOpen={isSidebarOpen}
-                    onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-                />
             </main>
         </div>
     )
 }
+

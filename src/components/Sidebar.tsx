@@ -46,7 +46,7 @@ export default function Sidebar({ isOpen, onToggle, onSelectTopic, favoriteTopic
             </AnimatePresence>
 
             <motion.aside
-                className={`fixed left-0 top-0 h-full bg-dark-900 border-r border-dark-700 transition-all duration-300 z-50 flex flex-col ${isOpen ? 'w-64 translate-x-0 shadow-2xl shadow-cyan-900/10' : 'w-64 -translate-x-full md:translate-x-0 md:w-16'}`}
+                className={`fixed left-0 top-0 h-full bg-dark-900 border-r border-dark-700 transition-all duration-300 z-50 flex flex-col ${isOpen ? 'w-[15rem] sm:w-64 translate-x-0 shadow-2xl shadow-cyan-900/10' : 'w-[15rem] sm:w-64 -translate-x-full md:translate-x-0 md:w-16'}`}
                 drag={isMobile && isOpen ? "x" : false}
                 dragConstraints={{ left: 0, right: 0 }}
                 dragElastic={0.2}
@@ -83,13 +83,13 @@ export default function Sidebar({ isOpen, onToggle, onSelectTopic, favoriteTopic
                                 <div key={topic} className="group flex items-center gap-1">
                                     <button
                                         onClick={() => onSelectTopic(topic)}
-                                        className="flex-1 text-left px-3 py-2 text-sm rounded-lg text-gray-300 hover:bg-dark-800 hover:text-white transition-colors"
+                                        className="flex-1 text-left px-3 py-2 text-sm rounded-lg text-gray-300 hover:bg-dark-800 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
                                     >
                                         {topic}
                                     </button>
                                     <button
                                         onClick={() => onToggleFavorite(topic)}
-                                        className="p-1.5 rounded text-gray-500 hover:text-yellow-400 hover:bg-dark-800 transition-colors"
+                                        className="p-1.5 rounded text-gray-500 hover:text-yellow-400 hover:bg-dark-800 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
                                         aria-label={`Pin ${topic}`}
                                     >
                                         <Pin className={`w-4 h-4 ${favoriteTopics.includes(topic) ? 'text-yellow-400' : ''}`} />
@@ -108,7 +108,7 @@ export default function Sidebar({ isOpen, onToggle, onSelectTopic, favoriteTopic
                                             <button
                                                 key={`fav-${topic}`}
                                                 onClick={() => onSelectTopic(topic)}
-                                                className="w-full text-left px-3 py-2 text-sm rounded-lg text-yellow-200 hover:bg-dark-800 hover:text-yellow-100 transition-colors"
+                                                className="w-full text-left px-3 py-2 text-sm rounded-lg text-yellow-200 hover:bg-dark-800 hover:text-yellow-100 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
                                             >
                                                 {topic}
                                             </button>
