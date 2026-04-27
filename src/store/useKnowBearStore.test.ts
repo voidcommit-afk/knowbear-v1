@@ -65,4 +65,23 @@ describe('useKnowBearStore', () => {
 
         expect(streamMock).toHaveBeenCalledTimes(2)
     })
+
+    it('passes regenerate flag and temperature for level regeneration', async () => {
+        const streamMock = vi.mocked(queryTopicStream)
+        const { result } = renderHook(() => useKnowBearStore())
+
+        await act(async () => {
+            await result.current.startSearch('thermodynamics')
+            await result.current.fetchLevel('thermodynamics', 'eli5', 'fast', { regenerate: true, temperature: 1.03 })
+        })
+
+        const regenerateCall = streamMock.mock.calls[1]
+        expect(regenerateCall?.[0]).toMatchObject({
+            topic: 'thermodynamics',
+            levels: ['eli5'],
+            mode: 'fast',
+            regenerate: true,
+            temperature: 1.03,
+        })
+    })
 })
