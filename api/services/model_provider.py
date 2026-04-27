@@ -1,6 +1,7 @@
 """Model provider abstraction."""
 
 import re
+import time
 
 from groq import AsyncGroq
 from google import genai
@@ -159,13 +160,15 @@ class ModelProvider:
         if mode == "fast":
             max_tokens = 1200  # Increased from 400 to prevent truncation
 
+        request_timeout = 10.0 if mode == "fast" else 18.0
         try:
+            started = time.perf_counter()
             completion = await self.groq_client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
                 model=target_model,
                 max_tokens=max_tokens,
                 temperature=kwargs.get("temperature", 0.7),
-                timeout=30.0
+                timeout=request_timeout
             )
 
             content = completion.choices[0].message.content
@@ -174,6 +177,12 @@ class ModelProvider:
             content = re.sub(r'Thought:.*?\n\n', '', content, flags=re.DOTALL) # Remove common CoT headers
             content = content.replace("<think>", "").replace("</think>", "").strip()
             await consume_tokens(client_ip, estimate_tokens(content))
+            logger.info(
+                "inference_completed",
+                mode=mode or "default",
+                model=target_model,
+                latency_ms=int((time.perf_counter() - started) * 1000),
+            )
             
             return {"provider": "groq", "model": target_model, "content": content}
         
@@ -210,17 +219,20 @@ class ModelProvider:
             return
 
         try:
+            request_timeout = 10.0 if mode == "fast" else 18.0
+            started = time.perf_counter()
             stream = await self.groq_client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
                 model=target_model,
                 max_tokens=max_tokens,
                 temperature=kwargs.get("temperature", 0.7),
                 stream=True,
-                timeout=30.0
+                timeout=request_timeout
             )
 
             is_thinking = False
             finish_reason = None
+            billable_tokens = 0
             async for chunk in stream:
                 content = chunk.choices[0].delta.content
                 
@@ -245,8 +257,17 @@ class ModelProvider:
                     content = content.split("</think>")[-1]
                 
                 if not is_thinking and content:
-                    await consume_tokens(client_ip, estimate_tokens(content))
+                    billable_tokens += estimate_tokens(content)
                     yield content
+
+            if billable_tokens > 0:
+                await consume_tokens(client_ip, billable_tokens)
+            logger.info(
+                "stream_inference_completed",
+                mode=mode or "default",
+                model=target_model,
+                latency_ms=int((time.perf_counter() - started) * 1000),
+            )
             
             # Log if response was truncated and signal frontend
             if finish_reason == 'length':
@@ -258,8 +279,8 @@ class ModelProvider:
             raise
         except Exception as e:
             logger.warning("groq_streaming_failed_fallback_to_gemini", error=str(e))
-            res = await self._fallback_to_gemini(prompt, client_ip=client_ip)
-            yield res["content"]
+            # Keep stream path low-latency in degraded conditions; let caller decide fallback.
+            raise ModelUnavailable("Streaming provider unavailable")
 
     async def _fallback_to_gemini(self, prompt: str, client_ip: str = "unknown") -> dict:
         if not self.gemini_configured:

@@ -132,6 +132,7 @@ export const useKnowBearStore = create<KnowBearState>()(
                             topic,
                             levels: [level],
                             mode,
+                            retrieval: mode === 'fast' ? 'off' : undefined,
                             temperature: options?.temperature,
                             regenerate: options?.regenerate || false,
                         },

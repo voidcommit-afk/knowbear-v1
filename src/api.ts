@@ -9,6 +9,8 @@ import {
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 const IS_DEV = import.meta.env.DEV
+const PINNED_CACHE_KEY = 'knowbear-pinned-topics-cache-v1'
+const PINNED_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
 function appendRequestId(message: string, requestId: string | null): string {
     if (!requestId) return message
@@ -35,14 +37,15 @@ async function getRequestIdFromErrorBody(res: Response): Promise<string | null> 
     }
 }
 
-async function fetchAPI<T>(path: string, options?: RequestInit & { responseType?: 'json' | 'blob' }): Promise<T> {
+async function fetchAPI<T>(path: string, options?: RequestInit & { responseType?: 'json' | 'blob'; timeoutMs?: number }): Promise<T> {
     const headers: HeadersInit = {
         'Content-Type': 'application/json',
         ...options?.headers,
     }
 
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 90000)
+    const timeoutMs = options?.timeoutMs ?? 45000
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
     try {
         const res = await fetch(`${API_URL}${path}`, {
@@ -91,19 +94,50 @@ function formatValidationError(prefix: string, err: ZodError): Error {
 }
 
 export async function getPinnedTopics(): Promise<PinnedTopic[]> {
-    const data = await fetchAPI<unknown>('/api/pinned')
+    if (typeof window !== 'undefined') {
+        try {
+            const cachedRaw = window.localStorage.getItem(PINNED_CACHE_KEY)
+            if (cachedRaw) {
+                const cached = JSON.parse(cachedRaw) as { timestamp: number; topics: unknown }
+                const fresh = Date.now() - cached.timestamp < PINNED_CACHE_TTL_MS
+                const parsedCached = pinnedTopicsSchema.safeParse(cached.topics)
+                if (fresh && parsedCached.success) return parsedCached.data
+            }
+        } catch {
+            // ignore cache parse failures
+        }
+    }
+
+    const data = await fetchAPI<unknown>('/api/pinned', { timeoutMs: 4000 })
     const parsed = pinnedTopicsSchema.safeParse(data)
     if (!parsed.success) throw formatValidationError('Invalid pinned topics response', parsed.error)
+
+    if (typeof window !== 'undefined') {
+        try {
+            window.localStorage.setItem(
+                PINNED_CACHE_KEY,
+                JSON.stringify({ timestamp: Date.now(), topics: parsed.data })
+            )
+        } catch {
+            // ignore storage failures
+        }
+    }
+
     return parsed.data
 }
 
 export async function queryTopic(req: QueryRequest): Promise<QueryResponse> {
+    return queryTopicWithTimeout(req, 45000)
+}
+
+async function queryTopicWithTimeout(req: QueryRequest, timeoutMs: number): Promise<QueryResponse> {
     const request = queryRequestSchema.safeParse(req)
     if (!request.success) throw formatValidationError('Invalid query request', request.error)
 
     const data = await fetchAPI<unknown>('/api/query', {
         method: 'POST',
         body: JSON.stringify(request.data),
+        timeoutMs,
     })
     const parsed = queryResponseSchema.safeParse(data)
     if (!parsed.success) throw formatValidationError('Invalid query response', parsed.error)
@@ -127,7 +161,7 @@ export async function queryTopicStream(
     }
 
     let retries = 0
-    const maxRetries = 2
+    const maxRetries = 0
 
     const fallbackToNonStream = async (reason: string): Promise<void> => {
         try {
@@ -135,7 +169,7 @@ export async function queryTopicStream(
             if (IS_DEV) {
                 console.warn('Streaming unavailable, falling back to non-stream response:', reason)
             }
-            const data = await queryTopic(request.data)
+            const data = await queryTopicWithTimeout(request.data, 25000)
             const preferredLevel = request.data.levels?.[0]
             const levelKey = preferredLevel && data.explanations?.[preferredLevel]
                 ? preferredLevel
@@ -149,13 +183,24 @@ export async function queryTopicStream(
     }
 
     const attemptStream = async (): Promise<void> => {
+        const STREAM_REQUEST_TIMEOUT_MS = 25000
+        const streamController = new AbortController()
+        const timeoutId = setTimeout(() => streamController.abort(), STREAM_REQUEST_TIMEOUT_MS)
+        const onAbort = () => streamController.abort()
+        if (signal) {
+            if (signal.aborted) streamController.abort()
+            else signal.addEventListener('abort', onAbort, { once: true })
+        }
+
         try {
             const response = await fetch(`${API_URL}/api/query/stream`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify(request.data),
-                signal,
+                signal: streamController.signal,
             })
+            clearTimeout(timeoutId)
+            if (signal) signal.removeEventListener('abort', onAbort)
 
             if (response.status === 429) {
                 let detail = 'Too many requests. Please try again later.'
@@ -233,7 +278,14 @@ export async function queryTopicStream(
                 }
             }
         } catch (err: unknown) {
-            if (err instanceof Error && err.name === 'AbortError') return
+            clearTimeout(timeoutId)
+            if (signal) signal.removeEventListener('abort', onAbort)
+
+            if (err instanceof Error && err.name === 'AbortError') {
+                if (signal?.aborted) return
+                onStatus?.('degraded')
+                return fallbackToNonStream('Stream request timed out')
+            }
 
             if (err instanceof Error && err.message === 'Stream read timed out') {
                 try {

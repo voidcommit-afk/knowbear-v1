@@ -71,20 +71,20 @@ def _cache_key(topic: str, level: str, mode: str, retrieval: str | None) -> str:
 
 
 async def _cache_get(key: str) -> str | None:
+    hit = _response_cache.get(key)
+    if hit:
+        expires_at, value = hit
+        if expires_at > time.time():
+            return value
+        _response_cache.pop(key, None)
+
     redis = get_upstash_redis_client()
     if redis.configured:
         remote = await redis.get(key)
         if remote:
+            _response_cache[key] = (time.time() + RESPONSE_CACHE_TTL_SECONDS, remote)
             return remote
-
-    hit = _response_cache.get(key)
-    if not hit:
-        return None
-    expires_at, value = hit
-    if expires_at <= time.time():
-        _response_cache.pop(key, None)
-        return None
-    return value
+    return None
 
 
 async def _cache_set(key: str, value: str) -> None:

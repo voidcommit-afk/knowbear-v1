@@ -1,6 +1,6 @@
 """Pinned topics endpoint."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 
 router = APIRouter(tags=["pinned"])
 
@@ -13,6 +13,7 @@ PINNED_TOPICS = [
 
 
 @router.get("/pinned")
-async def get_pinned() -> list[dict]:
+async def get_pinned(response: Response) -> list[dict]:
     """Return curated pinned topics."""
+    response.headers["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=604800"
     return PINNED_TOPICS

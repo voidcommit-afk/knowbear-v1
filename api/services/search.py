@@ -118,20 +118,21 @@ class SearchManager:
         return f"{profile}:{digest}"
 
     async def _cache_get(self, key: str, profile: str) -> str | None:
+        hit = self._cache.get(key)
+        if hit:
+            expires_at, value = hit
+            if expires_at > time.time():
+                return value
+            self._cache.pop(key, None)
+
         redis = get_upstash_redis_client()
         if redis.configured:
             remote = await redis.get(f"search_cache:{key}")
             if remote:
+                ttl = self.fast_cache_ttl_seconds if profile == "fast" else self.ensemble_cache_ttl_seconds
+                self._cache[key] = (time.time() + ttl, remote)
                 return remote
-
-        hit = self._cache.get(key)
-        if not hit:
-            return None
-        expires_at, value = hit
-        if expires_at <= time.time():
-            self._cache.pop(key, None)
-            return None
-        return value
+        return None
 
     async def _cache_set(self, key: str, value: str, profile: str) -> None:
         ttl = self.fast_cache_ttl_seconds if profile == "fast" else self.ensemble_cache_ttl_seconds
