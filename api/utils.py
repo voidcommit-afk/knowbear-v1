@@ -18,5 +18,4 @@ def sanitize_topic(topic: str) -> str:
         raise ValueError("Invalid characters in topic")
     return html.escape(topic)
 
-FREE_LEVELS = ["eli5", "eli10", "eli12", "eli15", "meme"]
-PREMIUM_LEVELS = ["classic60", "gentle70", "warm80"]
+LEVELS = ["eli5", "eli12", "eli15", "meme"]

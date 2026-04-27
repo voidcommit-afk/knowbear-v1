@@ -23,7 +23,7 @@ async def test_query_invalid_topic(app_client):
 
 
 @pytest.mark.asyncio
-async def test_query_supports_all_levels_without_premium(app_client, monkeypatch):
+async def test_query_supports_all_levels(app_client, monkeypatch):
     async def fake_ensemble_generate(_topic, _level, *_args, **_kwargs):
         return "ok"
 
@@ -31,13 +31,13 @@ async def test_query_supports_all_levels_without_premium(app_client, monkeypatch
 
     resp = app_client.post(
         "/api/query",
-        json={"topic": "Space", "levels": ["eli5", "classic60"], "mode": "ensemble"},
+        json={"topic": "Space", "levels": ["eli5", "meme"], "mode": "ensemble"},
     )
 
     assert resp.status_code == 200
     data = resp.json()
     assert "eli5" in data["explanations"]
-    assert "classic60" in data["explanations"]
+    assert "meme" in data["explanations"]
 
 
 @pytest.mark.asyncio
@@ -66,13 +66,13 @@ async def test_query_normalizes_and_caps_levels(app_client, monkeypatch):
         "/api/query",
         json={
             "topic": "Physics",
-            "levels": ["eli5", "eli5", "eli10", "eli12", "eli15", "meme", "classic60"],
+            "levels": ["eli5", "eli5", "eli12", "eli15", "meme", "invalid"],
             "mode": "fast",
         },
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert list(data["explanations"].keys()) == ["eli5", "eli10", "eli12", "eli15"]
+    assert list(data["explanations"].keys()) == ["eli5", "eli12", "eli15", "meme"]
 
 
 @pytest.mark.asyncio

@@ -8,11 +8,11 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from services.ensemble import ensemble_generate
-from utils import FREE_LEVELS, PREMIUM_LEVELS
+from utils import LEVELS
 
 router = APIRouter(tags=["export"])
 
-ALL_LEVELS = FREE_LEVELS + PREMIUM_LEVELS
+ALL_LEVELS = LEVELS
 
 
 class ExportRequest(BaseModel):
@@ -29,7 +29,7 @@ async def export_explanations(req: ExportRequest) -> StreamingResponse:
 
     missing_levels = [level for level in ALL_LEVELS if level not in req.explanations]
     if missing_levels:
-        tasks = {level: ensemble_generate(req.topic, level, False, req.mode) for level in missing_levels}
+        tasks = {level: ensemble_generate(req.topic, level, req.mode) for level in missing_levels}
         results = await asyncio.gather(*tasks.values(), return_exceptions=True)
         for level, result in zip(tasks.keys(), results):
             if isinstance(result, str):

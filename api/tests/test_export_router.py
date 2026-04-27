@@ -5,7 +5,7 @@ import routers.export as export_module
 
 @pytest.mark.asyncio
 async def test_export_txt_success(app_client, monkeypatch):
-    async def fake_generate(_topic, level, _premium, _mode):
+    async def fake_generate(_topic, level, _mode):
         return f"generated-{level}"
 
     monkeypatch.setattr(export_module, "ensemble_generate", fake_generate)
@@ -30,14 +30,12 @@ async def test_export_txt_success(app_client, monkeypatch):
 async def test_export_missing_levels_triggers_generation(app_client, monkeypatch):
     calls = []
 
-    async def fake_generate(_topic, level, _premium, _mode):
+    async def fake_generate(_topic, level, _mode):
         calls.append(level)
         return "generated"
 
     monkeypatch.setattr(export_module, "ensemble_generate", fake_generate)
-    monkeypatch.setattr(export_module, "FREE_LEVELS", ["eli5", "eli10"])
-    monkeypatch.setattr(export_module, "PREMIUM_LEVELS", [])
-    monkeypatch.setattr(export_module, "ALL_LEVELS", ["eli5", "eli10"])
+    monkeypatch.setattr(export_module, "ALL_LEVELS", ["eli5", "meme"])
 
     resp = app_client.post(
         "/api/export",
@@ -50,7 +48,7 @@ async def test_export_missing_levels_triggers_generation(app_client, monkeypatch
     )
 
     assert resp.status_code == 200
-    assert "eli10" in calls
+    assert "meme" in calls
 
 
 @pytest.mark.asyncio

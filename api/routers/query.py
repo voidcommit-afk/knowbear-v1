@@ -15,11 +15,11 @@ from logging_config import logger
 from services.ensemble import ensemble_generate
 from services.inference import generate_stream_explanation
 from token_rate_limit import TokenRateLimitExceeded
-from utils import FREE_LEVELS, PREMIUM_LEVELS, sanitize_topic
+from utils import LEVELS, sanitize_topic
 
 router = APIRouter(tags=["query"])
 
-ALL_LEVELS = FREE_LEVELS + PREMIUM_LEVELS
+ALL_LEVELS = LEVELS
 MAX_LEVELS_PER_QUERY = 4
 RESPONSE_CACHE_TTL_SECONDS = 300
 _response_cache: dict[str, tuple[float, str]] = {}
@@ -123,7 +123,7 @@ async def query_topic(req: QueryRequest, request: Request) -> QueryResponse:
                 explanations[level] = cached
                 continue
         tasks[level] = asyncio.create_task(
-            ensemble_generate(topic, level, False, req.mode, req.retrieval, client_ip=client_ip)
+            ensemble_generate(topic, level, req.mode, req.retrieval, client_ip=client_ip)
         )
 
     results = await asyncio.gather(*tasks.values(), return_exceptions=True) if tasks else []

@@ -14,12 +14,6 @@ Output: A rainbow is like a magic smile in the sky made of colors! When the sun 
 
 Output in plain text only, no markdown, no bolding, no headers. Just paragraphs. CRITICAL: Do not output your thinking process, "Thought:", or any <think> blocks. Output ONLY the final explanation.""",
 
-    "eli10": """Think step-by-step: 1. Analyze audience (10-year-old). 2. Select relatable examples. 3. Draft explanation.
-
-Explain {topic} for a 10-year-old: basic terms, clear examples from everyday life. Include one 'Did you know?' fun fact to spark curiosity.
-
-Output in plain text only, no markdown, no bolding, no headers. Just paragraphs. CRITICAL: Do not output your thinking process, "Thought:", or any <think> blocks. Output ONLY the final explanation.""",
-
     "eli12": """Think step-by-step: 1. Analyze audience (12-year-old). 2. Balance simplicity with some technical depth. 3. Draft explanation.
 
 Explain {topic} for a 12-year-old: some technical terms with clear definitions, real-world examples they can relate to.
@@ -36,24 +30,6 @@ Output in plain text only, no markdown, no bolding, no headers. Just paragraphs.
 
 Output in plain text only.""",
 
-
-    "classic60": """Think step-by-step: 1. Analyze audience (60+ years). 2. Select classic, familiar metaphors. 3. Draft at slower pace.
-
-Explain {topic} to someone who's 60 or older. Use classic metaphors they'll recognize - like balancing a checkbook, reading the newspaper, looking up shows in a TV Guide, or tuning a radio dial. Take your time with the explanation, using clear language and familiar examples from everyday life.
-
-Output in plain text only, no markdown, no bolding, no headers. Just paragraphs. CRITICAL: Do not output your thinking process, "Thought:", or any <think> blocks. Output ONLY the final explanation.""",
-
-    "gentle70": """Think step-by-step: 1. Analyze audience (70+ years). 2. Choose deeply familiar analogies. 3. Craft patient, reassuring explanation.
-
-Explain {topic} to someone who's 70 or older with extreme patience and warmth. Use familiar examples like a rotary phone, drive-in movies, a party line, or mailing a letter. No technical jargon whatsoever - keep everything in plain, everyday language. Include reassuring phrases to make them feel comfortable. There's no hurry, take all the time needed.
-
-Output in plain text only, no markdown, no bolding, no headers. Just paragraphs. CRITICAL: Do not output your thinking process, "Thought:", or any <think> blocks. Output ONLY the final explanation.""",
-
-    "warm80": """Think step-by-step: 1. Analyze audience (80+ years). 2. Select ultra-basic, timeless analogies. 3. Craft warmest possible explanation.
-
-Explain {topic} to someone who's 80 or older with the warmest, most patient tone possible. Use ultra-basic analogies from timeless activities like baking bread, tending a garden, knitting, or sitting on the porch. Keep everything simple and comforting. No rush at all - we have all the time in the world.
-
-Output in plain text only, no markdown, no bolding, no headers. Just paragraphs. CRITICAL: Do not output your thinking process, "Thought:", or any <think> blocks. Output ONLY the final explanation.""",
 }
 
 JUDGE_PROMPT = """Rate these responses for "{topic}" on coherence (1-5), accuracy (1-5), conciseness (1-5).

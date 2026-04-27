@@ -10,7 +10,6 @@ from services.inference import call_model, generate_explanation
 async def ensemble_generate(
     topic: str,
     level: str,
-    use_premium: bool = False,
     mode: str = "ensemble",
     retrieval: str | None = None,
     client_ip: str = "unknown",
@@ -23,7 +22,7 @@ async def ensemble_generate(
                 topic,
                 level,
                 FAST_MODEL,
-                is_pro=use_premium,
+                is_pro=False,
                 mode="fast",
                 retrieval=retrieval,
                 client_ip=client_ip,
@@ -37,7 +36,7 @@ async def ensemble_generate(
             topic,
             level,
             m,
-            is_pro=use_premium,
+            is_pro=False,
             mode="ensemble",
             retrieval=retrieval,
             client_ip=client_ip,
@@ -75,9 +74,9 @@ async def judge_responses(topic: str, responses: list[str], client_ip: str = "un
         return responses[0]
 
 
-async def generate_all_levels(topic: str, levels: list[str], premium: bool = False) -> dict[str, str]:
+async def generate_all_levels(topic: str, levels: list[str]) -> dict[str, str]:
     """Generate explanations for all levels in parallel."""
-    tasks = {lvl: ensemble_generate(topic, lvl, premium) for lvl in levels}
+    tasks = {lvl: ensemble_generate(topic, lvl) for lvl in levels}
     results = {}
     for lvl, task in tasks.items():
         try:

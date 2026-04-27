@@ -127,7 +127,7 @@ class ModelProvider:
             max_tokens = 1200  # Increased from 400 to prevent truncation 
             
         # E. Simple / Old Modes (Explicit Cap)
-        elif mode in ["eli5", "eli10"]:
+        elif mode == "eli5":
             target_model = "llama-3.1-8b-instant"
             max_tokens = 1200  # Increased from 400 to prevent truncation
             
@@ -155,7 +155,6 @@ class ModelProvider:
         if not self.groq_client:
             return await self._fallback_to_gemini(prompt, client_ip=client_ip)
 
-        is_pro = kwargs.get("is_pro", False) or kwargs.get("premium", False)
         # Apply word cap for fast modes even if pro (user's request)
         if mode == "fast":
             max_tokens = 1200  # Increased from 400 to prevent truncation
@@ -201,7 +200,7 @@ class ModelProvider:
             target_model = "llama-3.1-8b-instant"
             max_tokens = 1024
             
-        if mode in ["eli5", "eli10"]:
+        if mode == "eli5":
             max_tokens = 1200  # Increased from 400 to prevent truncation
 
         if not self.groq_client:
